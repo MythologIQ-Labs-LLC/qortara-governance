@@ -6,7 +6,7 @@ Email **security@qortara.com** with the details of the issue. Please **do not** 
 
 A useful report includes:
 
-- Affected version(s) of `qortara-governance-langchain`
+- Affected package name and version(s) (e.g., `qortara-governance-langchain` 0.2.1)
 - Reproduction steps or a proof-of-concept
 - Your assessment of impact (e.g., patch bypass, policy evasion, information disclosure, denial of service)
 - Whether the finding has been disclosed elsewhere
@@ -19,13 +19,13 @@ If you do not receive an acknowledgement within 5 business days, please follow u
 
 In scope:
 
-- The `qortara-governance-langchain` SDK (this repository): patch correctness, circuit-breaker behavior, error-handling, dependency vulnerabilities, information disclosure through exception content or logs.
-- The sidecar wire protocol *as consumed by this SDK*: request construction, response handling, authentication header handling.
+- Any package published from this workspace (currently `qortara-governance-langchain`; additional adapter packages as they land): patch correctness, circuit-breaker behavior, error-handling, dependency vulnerabilities, information disclosure through exception content or logs.
+- The sidecar wire protocol *as consumed by these SDKs*: request construction, response handling, authentication header handling.
 
 Out of scope for this repository's advisory process:
 
-- Vulnerabilities in LangChain, LangGraph, or other upstream dependencies — report those upstream. We'll track and pin as needed once an upstream advisory lands.
-- Issues in applications built *using* this SDK that do not involve the SDK itself.
+- Vulnerabilities in LangChain, LangGraph, or other upstream framework dependencies — report those upstream. We'll track and pin as needed once an upstream advisory lands.
+- Issues in applications built *using* an SDK that do not involve the SDK itself.
 - Social-engineering, physical access, or third-party service outage scenarios.
 
 Findings in the hosted decision plane should be reported to the same address; routing inside MythologIQ Labs is handled on our end.

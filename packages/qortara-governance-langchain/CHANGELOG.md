@@ -1,5 +1,20 @@
 # Changelog — qortara-governance-langchain
 
+## v0.2.1 — 2026-05-04
+
+### Changed
+
+- Repository restructured as a uv workspace mono-repo. Source moves from the repository root into `packages/qortara-governance-langchain/`. Sibling adapter packages (CrewAI, LlamaIndex, AutoGen) will land as additional `packages/*` members.
+- Repository renamed from `qortara-governance-langchain` to `qortara-governance`. GitHub redirects the old URL. PyPI package name is unchanged — `pip install qortara-governance-langchain` continues to work without modification.
+
+### Fixed
+
+- `LICENSE` file now contains the full canonical Apache-2.0 text. The prior file shipped only the boilerplate notice header, which prevented GitHub's license detector and downstream tooling from identifying the license (`spdx_id: NOASSERTION`).
+
+### No API changes
+
+- No public API, import paths, dependency pins, or runtime behavior changed in this release.
+
 ## v0.2.0 — 2026-04-23
 
 ### Added

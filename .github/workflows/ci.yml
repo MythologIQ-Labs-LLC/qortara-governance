@@ -12,6 +12,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        package:
+          - qortara-governance-langchain
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
     steps:
       - uses: actions/checkout@v6
 
@@ -21,7 +26,7 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Install project
+      - name: Install package
         run: uv sync --all-extras --python ${{ matrix.python-version }}
 
       - name: Lint (ruff)
