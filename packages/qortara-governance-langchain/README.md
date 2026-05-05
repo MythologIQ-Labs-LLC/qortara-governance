@@ -1,32 +1,54 @@
+<div align="center">
+
 # qortara-governance-langchain
 
-Policy enforcement for LangChain and LangGraph agents, at the point of tool dispatch.
+**Policy enforcement for LangChain and LangGraph agents — at the point of tool dispatch.**
 
 [![PyPI](https://img.shields.io/pypi/v/qortara-governance-langchain.svg)](https://pypi.org/project/qortara-governance-langchain/)
 [![Python](https://img.shields.io/pypi/pyversions/qortara-governance-langchain.svg)](https://pypi.org/project/qortara-governance-langchain/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
-[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#status)
+[![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#project-status)
 
-```python
-import qortara_governance
-
-qortara_governance.init(tenant_key="qt_...")
-
-# Existing LangChain / LangGraph code runs unchanged.
-# Tool dispatches now pass through policy evaluation before execution.
-```
+</div>
 
 ---
 
-## What it does
+## The problem
 
-`qortara-governance-langchain` intercepts tool dispatch inside LangChain and LangGraph agents and routes each call through a local policy decision point before execution. Denied calls raise a typed exception; allowed calls execute normally; calls requiring human approval raise with an approval URL.
+If you've added a callback handler or a tool wrapper to govern your LangChain agents, there's a good chance some calls walk past it.
 
-Enforcement happens at `BaseTool.invoke` / `BaseTool.ainvoke` and (optionally) `langgraph.prebuilt.ToolNode.invoke` — the paths native tool-calling agents actually take, not just the callback surface that wrapper-based governance can observe.
+Native tool-calling agents — anything using `OpenAIToolsAgent`, `create_tool_calling_agent`, structured-output binding, or LangGraph's `ToolNode` — dispatch through `BaseTool.invoke`. Callbacks fire **around** that path; they observe, they don't gate. Wrappers govern the tools they wrap, but unwrapped tools (sub-agents, dynamically loaded tools, `ToolNode` paths) bypass them entirely.
 
-This is a companion to LangSmith, not a replacement. LangSmith traces execution; this SDK decides whether execution is allowed to happen.
+This is the "wrapper-bypass" gap [tracked as AGT issue #73](https://github.com/microsoft/agent-governance-toolkit/issues/73): observability is not enforcement.
 
-## Install
+## What this package does
+
+It places a synchronous decision point on the dispatch path itself:
+
+```
+                      ┌──────────────┐
+                      │ AgentExec    │
+                      └──────┬───────┘
+                             │ resolve tool
+                             ▼
+                  ┌──────────────────────┐
+                  │ BaseTool.invoke()    │  ← intercepted
+                  └──────────┬───────────┘
+                             │
+                             ▼
+                  ┌──────────────────────┐
+                  │  Policy evaluation   │
+                  │   (local sidecar)    │
+                  └──────────┬───────────┘
+            allow │ deny │ approval │ exempt
+            ──────┼──────┼──────────┼──────
+                  ▼     raise      raise
+            tool runs  exception  exception
+```
+
+Every native tool dispatch passes through. Denied calls raise `QortaraPolicyDenied`; calls requiring human approval raise `QortaraApprovalRequired` with an approval URL; allowed calls execute normally. No tool rewriting, no callback re-registration, no agent code changes.
+
+## Quickstart
 
 ```bash
 pip install qortara-governance-langchain
@@ -35,43 +57,42 @@ pip install qortara-governance-langchain
 pip install 'qortara-governance-langchain[langgraph]'
 ```
 
-Requires Python 3.10+ and `langchain-core >= 0.3`.
-
-## Quickstart
-
 ```python
 import qortara_governance
 from langchain_core.tools import tool
 from langchain.agents import AgentExecutor
 
-qortara_governance.init(tenant_key="qt_...")
+qortara_governance.init()
 
 @tool
 def send_email(to: str, body: str) -> str:
     """Send an email."""
     ...
 
-# agent + AgentExecutor configured as usual
 agent_executor = AgentExecutor(agent=agent, tools=[send_email])
 
 try:
-    result = agent_executor.invoke({"input": "Email the finance list the Q3 numbers."})
+    result = agent_executor.invoke({"input": "Email finance the Q3 numbers."})
 except qortara_governance.QortaraPolicyDenied as denied:
     log.warning("blocked by policy: %s", denied.rationale)
 except qortara_governance.QortaraApprovalRequired as needs_approval:
     log.info("approval needed at: %s", needs_approval.approval_url)
 ```
 
+Requires Python 3.10+ and `langchain-core >= 0.3`.
+
 ## Decision model
 
-Every intercepted call receives one of four decisions:
+Every intercepted call resolves to one of four states:
 
-| Decision | SDK behavior |
-|---|---|
-| `allow` | Execute the tool normally |
-| `deny` | Raise `QortaraPolicyDenied` with rationale + policy identifiers |
-| `require_approval` | Raise `QortaraApprovalRequired` with an approval URL |
-| `exempt` | Execute without evaluation (tool marked via `@qortara_exempt`) |
+| Decision | SDK behavior | When |
+|---|---|---|
+| `allow` | Execute the tool normally | Routine, low-blast-radius calls |
+| `deny` | Raise `QortaraPolicyDenied` with rationale + policy ID | Hard-stop policies (compliance, classification, locked-down tools) |
+| `require_approval` | Raise `QortaraApprovalRequired` with an approval URL | Higher-blast-radius calls that should pause for a human |
+| `exempt` | Execute without evaluation, but emit evidence | Pre-trusted tools (clocks, ID generators) |
+
+Exempt tools opt out of evaluation but still produce an audit record:
 
 ```python
 from qortara_governance import qortara_exempt
@@ -83,38 +104,34 @@ def read_clock() -> str:
     return datetime.utcnow().isoformat()
 ```
 
-Exempt tools still emit evidence records so audits remain complete.
+## Where the SDK ends and other concerns begin
 
-## Scope
-
-This package is an enforcement point, not a complete governance system. The split is intentional:
+This package is an **enforcement point**, not a complete governance system:
 
 | Concern | Where it lives |
 |---|---|
-| Tool-dispatch interception | SDK (this package) |
-| Local policy evaluation | Sidecar (bundled) |
-| Evidence signing (Ed25519, JCS, SHA-256) | Sidecar |
-| Policy authoring, versioning, distribution | Qortara Cloud Governance *(separate, hosted)* — or a local policy pack |
-| Cross-organization identity, trust, and federation | Qortara Cloud Governance |
+| Tool-dispatch interception | This SDK |
+| Local policy evaluation | Bundled sidecar |
+| Evidence signing (Ed25519, RFC 8785 JCS, SHA-256) | Sidecar |
+| Policy authoring, versioning, distribution | Local policy pack OR Qortara Cloud Governance |
+| Cross-organization identity, trust, federation | Qortara Cloud Governance |
 | Multi-tenant evidence ledger and retention | Qortara Cloud Governance |
 | Compliance reporting and audit surfaces | Qortara Cloud Governance |
 
-The SDK and sidecar run standalone. With `QORTARA_OFFLINE_POLICY` set and no `tenant_key`, the sidecar evaluates against the local policy pack and writes evidence to local storage — suitable for air-gapped environments. Providing a `tenant_key` adds hosted policy distribution, cross-organization federation, and long-term evidence retention via Qortara Cloud Governance. Nothing in this package requires the hosted plane.
+For air-gapped or local-only deployments: set `QORTARA_OFFLINE_POLICY` to a local policy pack path. The SDK and sidecar run standalone with no network dependency.
 
-This keeps the enforcement point minimal and auditable, while letting governance concerns that need shared state — multi-agent trust, cross-organization policy, retention, compliance — live where shared state belongs.
+For hosted policy distribution and cross-organization features: provide a `tenant_key` and Qortara Cloud Governance handles policy sync, federation, and long-term retention. Nothing in this package requires the hosted plane.
 
 ## Sidecar
 
-The SDK talks to a local sidecar process over HTTP. Two run modes are supported:
+The SDK talks to a local sidecar over HTTP. Two run modes:
 
-- **Subprocess (default).** `init()` launches the sidecar as a child process, bound to `127.0.0.1` on an ephemeral port. It terminates with the parent. No configuration required.
-- **Daemon.** Run the sidecar externally and set `QORTARA_SIDECAR_ENDPOINT=http://host:port`. `init()` will use the existing endpoint instead of spawning one.
+- **Subprocess (default)** — `init()` spawns the sidecar as a child process bound to `127.0.0.1` on an ephemeral port. Terminates with the parent. No configuration required.
+- **Daemon** — run the sidecar externally and set `QORTARA_SIDECAR_ENDPOINT=http://host:port`. `init()` uses the existing endpoint instead of spawning.
 
-If the sidecar becomes unreachable, the SDK enters a circuit-breaker state that fails closed for a short cooldown window. Calls during that window raise `QortaraSidecarUnavailable`.
+If the sidecar becomes unreachable, the SDK enters a circuit-breaker state that **fails closed** for a short cooldown. Calls during that window raise `QortaraSidecarUnavailable`.
 
 ## Configuration
-
-Every option resolves in this precedence: `init()` kwarg → environment variable → default.
 
 | Option | Env var | Default | Notes |
 |---|---|---|---|
@@ -123,22 +140,24 @@ Every option resolves in this precedence: `init()` kwarg → environment variabl
 | `policy_mode` | `QORTARA_POLICY_MODE` | `enforce` | `enforce` raises on deny; `observe` logs but executes |
 | `offline_policy_path` | `QORTARA_OFFLINE_POLICY` | *(none)* | Path to a local policy pack for air-gapped environments |
 
+Resolution order: `init()` kwarg → env var → default.
+
 ## Observability
 
-`QortaraCallbackHandler` is an additive LangChain callback for chain-boundary and retrieval events. It never blocks execution and is safe to register alongside LangSmith or any other callback.
+`QortaraCallbackHandler` is an additive LangChain callback for chain-boundary and retrieval events. It never blocks execution; safe to register alongside LangSmith or any other callback:
 
 ```python
 from qortara_governance import QortaraCallbackHandler
 chain.invoke({...}, config={"callbacks": [QortaraCallbackHandler()]})
 ```
 
-W3C `traceparent` is propagated on every sidecar call, so evidence records and LangSmith traces share trace IDs for correlation.
+W3C `traceparent` propagates on every sidecar call, so evidence records and LangSmith traces share trace IDs for correlation.
 
 ## Data handling
 
 The SDK forwards the arguments of each intercepted tool call to the sidecar for policy evaluation. Tool arguments may contain sensitive content depending on how your tools are designed. In regulated environments, review which tool arguments will cross the SDK/sidecar boundary and ensure your sidecar deployment — and its storage, if any — satisfies your data-classification requirements.
 
-Subprocess mode keeps all data on `localhost` for the lifetime of the process. Daemon mode depends on the network path and destination you configure.
+Subprocess mode keeps all data on `localhost` for the lifetime of the process. Daemon mode depends on the network path you configure.
 
 ## Compatibility
 
@@ -148,11 +167,23 @@ Subprocess mode keeps all data on `localhost` for the lifetime of the process. D
 | `langchain-core` | >= 0.3 |
 | `langgraph` | >= 0.2 (optional) |
 
-Upcoming LangChain releases are tracked as they land. File an issue if you hit a patching regression on a newer version.
+Newer LangChain releases are tracked as they ship. File an issue if you hit a patching regression on a version not yet pinned.
 
-## Status
+## Project status
 
-Alpha. Minor breaking changes may ship before 1.0. No warranty is provided; see [LICENSE](LICENSE). Evaluate carefully before production use and pin to a specific version.
+**Alpha.** Minor breaking changes may ship before 1.0. Evaluate carefully before production use and pin to a specific version. No warranty is provided; see [LICENSE](LICENSE).
+
+The current test suite includes a regression test for the AGT issue #73 wrapper-bypass closure. Test fidelity rises with each release; production fidelity awaits 1.0.
+
+## Roadmap
+
+Tracked in [open issues](https://github.com/MythologIQ-Labs-LLC/qortara-governance/issues):
+
+- Compatibility tracking against incoming LangChain 0.4 / 0.5 releases
+- Additional examples (RAG retrieval governance, multi-agent supervisor with policy escalation)
+- Sibling packages for CrewAI, LlamaIndex, AutoGen (separate adapter packages under the same workspace)
+- LangSmith metadata integration so governance decisions surface in trace UIs
+- v1.0 stabilization once the public API surface stops shifting
 
 ## Security
 
@@ -160,12 +191,16 @@ Report vulnerabilities privately — see [SECURITY.md](SECURITY.md). Do not open
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Contributor Covenant applies — see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+See [CONTRIBUTING.md](../../CONTRIBUTING.md). Contributor Covenant applies — see [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md). Discussions open at [GitHub Discussions](https://github.com/MythologIQ-Labs-LLC/qortara-governance/discussions).
+
+## Acknowledgments
+
+The wrapper-bypass gap was first articulated in [Microsoft AGT issue #73](https://github.com/microsoft/agent-governance-toolkit/issues/73). This SDK closes it for LangChain.
+
+LangChain, LangGraph, and LangSmith are trademarks of LangChain, Inc. `qortara-governance-langchain` is an independent project and is not affiliated with, endorsed by, or sponsored by LangChain, Inc.
+
+Qortara is a trademark of MythologIQ Labs, LLC. See [TRADEMARKS.md](TRADEMARKS.md).
 
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
----
-
-LangChain, LangGraph, and LangSmith are trademarks of LangChain, Inc. `qortara-governance-langchain` is an independent project and is not affiliated with, endorsed by, or sponsored by LangChain, Inc. Qortara is a trademark of MythologIQ Labs, LLC — see [TRADEMARKS.md](TRADEMARKS.md).
