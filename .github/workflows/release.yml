@@ -3,14 +3,18 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'qortara-governance-langchain-v*'
+      - 'v*'  # legacy: pre-monorepo tags map to qortara-governance-langchain
 
 jobs:
-  build-and-publish:
+  build-and-publish-langchain:
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # PyPI trusted publishing via OIDC
       contents: read
+    defaults:
+      run:
+        working-directory: packages/qortara-governance-langchain
     steps:
       - uses: actions/checkout@v6
 
@@ -23,5 +27,5 @@ jobs:
       - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/
+          packages-dir: packages/qortara-governance-langchain/dist/
           skip-existing: true

@@ -10,16 +10,16 @@ Thanks for your interest in contributing. This document covers local setup, how 
 
 ## Local setup
 
-This package uses [`uv`](https://docs.astral.sh/uv/) for environment management.
+This repository is a [`uv`](https://docs.astral.sh/uv/) workspace. Each package lives under `packages/`.
 
 ```bash
-git clone https://github.com/MythologIQ-Labs-LLC/qortara-governance-langchain.git
-cd qortara-governance-langchain
+git clone https://github.com/MythologIQ-Labs-LLC/qortara-governance.git
+cd qortara-governance
 uv sync --all-extras
-uv run pytest
+uv run --package qortara-governance-langchain pytest
 ```
 
-`pytest` must pass before opening a PR. The suite includes regression tests for the `BaseTool` and `ToolNode` patch surfaces; those are load-bearing and should stay green.
+`pytest` must pass for every package you touch before opening a PR. For `qortara-governance-langchain`, the suite includes regression tests for the `BaseTool` and `ToolNode` patch surfaces; those are load-bearing and should stay green.
 
 ## Style
 
