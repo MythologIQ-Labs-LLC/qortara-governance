@@ -1,0 +1,33 @@
+name: Compliance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install qor-logic
+        run: uv tool install qor-logic
+
+      # HARD gate: fails on any DAMAGED / INCOMPLETE governance artifact.
+      - name: Governance health
+        run: qor-logic governance-health --profile skill-entry
+
+      # HARD gate: Merkle ledger chain integrity.
+      - name: Verify ledger chain
+        run: qor-logic verify-ledger
+
+      # Report-only: NIST SSDF practice coverage + AI-Act/SSDF surface.
+      - name: Compliance report (NIST SSDF / EU AI Act)
+        run: qor-logic compliance report || true

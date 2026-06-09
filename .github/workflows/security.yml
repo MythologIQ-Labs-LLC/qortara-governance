@@ -1,0 +1,59 @@
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/qortara-governance-langchain
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install package
+        run: uv sync --all-extras --python 3.12
+
+      # --- report-only initially (non-blocking); harden to blocking after baseline triage ---
+      - name: Dependency audit (pip-audit)
+        run: uv tool run pip-audit || true
+
+      - name: SAST (bandit)
+        run: uv tool run bandit -r src -ll || true
+
+      - name: SBOM (CycloneDX)
+        run: |
+          uv tool run --from cyclonedx-bom cyclonedx-py environment -o sbom.cdx.json || \
+          uv tool run --from cyclonedx-bom cyclonedx-py -o sbom.cdx.json || true
+
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: packages/qortara-governance-langchain/sbom.cdx.json
+          if-no-files-found: ignore
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      # HARD gate: fails the PR on any detected secret.
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

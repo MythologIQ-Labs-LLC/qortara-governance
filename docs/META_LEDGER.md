@@ -573,3 +573,49 @@ chain/merkle = f632c71ae40f6148869ca6b558ba211f157378500a03788130fef4e698706757
 ---
 *Chain integrity: VALID — SESSION SEALED (local hold)*
 *Next action (operator-gated): commit the sealed working tree, then /qor-repo-release. Both cross the Review Boundary and require explicit go-ahead.*
+
+> **Post-seal continuation (operator-authorized):** session committed (`586a818`) + pushed; PR #13 opened (no tag/PyPI; no AI footer per operator). Phases 11+ append below.
+
+---
+
+### Entry #27: GATE TRIBUNAL — Phase 11 (CI security + compliance gates)
+
+**Timestamp**: 2026-06-09T12:17:00Z
+**Phase**: GATE
+**Author**: Judge (auto-dev orchestration)
+**Risk Grade**: L2
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(AUDIT_REPORT-phase11.md) = 5ba3835958abec07d60442d4cfb0c31bf73c604d0fd0171af88c888d6cbf2d0e
+
+**Previous Hash**: 774bd1262878e96218f34a51332a92adb0b07d1ec91da05926cb47aba5da1cf1
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 6b33871ceb1fa01c54db47a5054e8d4ff4fc121beee13584ab89f01287d5541c
+
+**Decision**: Plan to add `security.yml` + `compliance.yml` CI gates cleared all binding passes (tools grounded as public/installable). Net security posture improvement. Cleared for /qor-implement.
+
+---
+
+### Entry #28: SEAL — Phase 11 (CI security + compliance gates)
+
+**Timestamp**: 2026-06-09T12:25:00Z
+**Phase**: SEAL (substantiate, local — Review Boundary: commit+push to PR #13, no tag/PyPI)
+**Author**: Specialist (auto-dev orchestration)
+**Risk Grade**: L2
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(security.yml + compliance.yml) = ae6d1941a422d26d563a23a1e5e54e860797b580d523a764cf6569cc6b5aa0ba
+
+**Previous Hash**: 5ba3835958abec07d60442d4cfb0c31bf73c604d0fd0171af88c888d6cbf2d0e
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 8e49c1090cadfeb6bbabb17497d800bec53a9f421b0156b05fcb8e30a4b6d4cf
+
+**Decision**: Reality == Promise. `security.yml` (pip-audit / bandit / CycloneDX SBOM / gitleaks) + `compliance.yml` (governance-health HARD / verify-ledger HARD / SSDF-AI-Act report) added; both YAML-valid; local gate parity clean. Hard gates: secrets + governance-health + ledger. Report-only (follow-up to harden): pip-audit / bandit / SBOM / SSDF report. SOC 2 scoped as evidence-emission (SBOM + ai_provenance), not a pass/fail gate. Committed + pushed to PR #13.
+
+---
+*Chain integrity: VALID*
+*CI gates added. Open follow-ups: harden report-only gates to blocking; protocol reconcile; sidecar cleanup; LangGraph ToolNode → AGT.*
