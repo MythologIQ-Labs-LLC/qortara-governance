@@ -18,6 +18,18 @@ A Python monorepo of framework-specific adapters that intercept tool dispatch in
 
 Most agent governance hooks into callbacks or wraps tools. That's observation, not enforcement: the dispatch path that native tool-calling agents take can route around it. These adapters sit on the dispatch path itself — `BaseTool.invoke`, `ToolNode.invoke`, and equivalents in other frameworks — so policy decisions are synchronous, deterministic, and impossible to bypass.
 
+**Built on Microsoft AGT.** qortara extends the [Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) (MIT) as a dependency — AGT supplies the policy engine, identity, sandboxing, and OWASP-Agentic compliance; qortara adds the bypass-proof dispatch-path hook (closing AGT #73) and an optional Azure upstream. It does not vendor or modify AGT. See [`docs/adr/0001`](docs/adr/0001-agt-foundation-vendoring.md).
+
+## Public and hosted layers
+
+`qortara-governance` is the open integration and deterministic enforcement layer.
+
+It can run locally with policy packs, local audit events, and no hosted dependency. Qortara's licensed hosted platform adds proportional authority evaluation, cumulative and sequence-aware risk analysis, adaptive escalation, tenant policy, managed approvals, and enterprise enforcement on Azure.
+
+The public package exposes the request, response, adapter, and enforcement contracts. It does not expose the proprietary algorithms used by the hosted decision service.
+
+See [`docs/ARCHITECTURE-BOUNDARIES.md`](docs/ARCHITECTURE-BOUNDARIES.md) for the full responsibility and capability split.
+
 ## Packages
 
 | Package | Status | PyPI | Description |
@@ -36,12 +48,18 @@ pip install qortara-governance-langchain
 
 ```python
 import qortara_governance
+from qortara_governance import AgentContext, set_context
 
-qortara_governance.init()
+# Local enforcement, in-process via the bundled AGT engine — no sidecar required.
+qortara_governance.init_agt(agent_id="my-agent", allowed_tools=["search", "read_file"])
+set_context(AgentContext(tenant_id="t", agent_id="my-agent", session_id="s"))
 
-# Existing LangChain code runs unchanged.
-# Tool dispatches now pass through policy evaluation before execution.
+# Existing LangChain code runs unchanged. Tool dispatches now pass through the
+# AGT policy engine before execution: allow-listed tools run, others are denied
+# (QortaraPolicyDenied) before the tool body executes.
 ```
+
+For a remote/daemon deployment, `qortara_governance.init()` connects to a sidecar over `QORTARA_SIDECAR_ENDPOINT` instead of the in-process engine.
 
 Full integration guide: [`packages/qortara-governance-langchain/README.md`](packages/qortara-governance-langchain/README.md).
 
@@ -51,6 +69,8 @@ Full integration guide: [`packages/qortara-governance-langchain/README.md`](pack
 qortara-governance/
 ├── packages/
 │   └── qortara-governance-langchain/   LangChain + LangGraph adapter
+├── docs/
+│   └── ARCHITECTURE-BOUNDARIES.md       Public, hosted, and Azure boundaries
 ├── pyproject.toml                       uv workspace config
 └── .github/                             shared CI + issue templates
 ```

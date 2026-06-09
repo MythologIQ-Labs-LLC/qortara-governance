@@ -37,7 +37,9 @@ class FakeClient(SidecarClient):  # type: ignore[misc]
     def close(self) -> None:
         pass
 
-    def decide(self, request: ActionRequest) -> ActionDecision:  # type: ignore[override]
+    def decide(
+        self, request: ActionRequest, tool_input: object = None
+    ) -> ActionDecision:  # type: ignore[override]
         self.requests.append(request)
         kind = (
             self.scripted_decisions.pop(0)
@@ -96,11 +98,13 @@ def ctx() -> AgentContext:
 
 @pytest.fixture(autouse=True)
 def _unpatch_after(monkeypatch: pytest.MonkeyPatch) -> Any:
-    """Auto-unpatch between tests to keep state isolated."""
+    """Auto-unpatch between tests + reset the agent context to keep state isolated."""
     yield
+    from qortara_governance import context as _ctxmod
     from qortara_governance.patches import unpatch_all
 
     unpatch_all()
+    _ctxmod._ctx_var.set(None)  # GAP-M-9: prevent context leaking across tests
 
 
 class FakeTool:

@@ -12,11 +12,12 @@ The module exposes a process-singleton `_REGISTRY` so the public entry point
 from __future__ import annotations
 
 import importlib.util
+import threading
 import warnings
 from typing import Sequence
 
-from qortara_governance.client import SidecarClient
 from qortara_governance.contract.protocol import FrameworkAdapter
+from qortara_governance.decision_client import DecisionClient
 from qortara_governance.contract.state import (
     CONTRACT_VERSION,
     AdapterState,
@@ -24,12 +25,16 @@ from qortara_governance.contract.state import (
 )
 
 
-def _default_adapters() -> list[FrameworkAdapter]:
-    """Return the default adapter list shipped with this SDK."""
+def _default_adapters(observe: bool = False) -> list[FrameworkAdapter]:
+    """Return the default adapter list shipped with this SDK.
+
+    `observe` (policy_mode=observe) is baked into each adapter so its dispatch
+    wrappers log would-be blocks instead of raising (shadow/dry-run mode).
+    """
     from qortara_governance.patches.langgraph_patches import LangGraphToolNodeAdapter
     from qortara_governance.patches.tool_patches import LangChainToolAdapter
 
-    return [LangChainToolAdapter(), LangGraphToolNodeAdapter()]
+    return [LangChainToolAdapter(observe), LangGraphToolNodeAdapter(observe)]
 
 
 class AdapterRegistry:
@@ -37,11 +42,11 @@ class AdapterRegistry:
 
     def __init__(self) -> None:
         self._entries: dict[str, tuple[FrameworkAdapter, AdapterState]] = {}
-        self._client: SidecarClient | None = None
+        self._client: DecisionClient | None = None
 
     def apply(
         self,
-        client: SidecarClient,
+        client: DecisionClient,
         adapters: Sequence[FrameworkAdapter],
     ) -> None:
         """Apply each adapter in order; skip those whose framework is unavailable."""
@@ -49,7 +54,7 @@ class AdapterRegistry:
             self._apply_one(client, adapter)
         self._client = client
 
-    def _apply_one(self, client: SidecarClient, adapter: FrameworkAdapter) -> None:
+    def _apply_one(self, client: DecisionClient, adapter: FrameworkAdapter) -> None:
         if adapter.contract_version != CONTRACT_VERSION:
             raise IncompatibleAdapterVersion(
                 f"adapter {adapter.name!r} contract_version="
@@ -96,29 +101,39 @@ class AdapterRegistry:
         return bool(self._entries)
 
     @property
-    def client(self) -> SidecarClient | None:
+    def client(self) -> DecisionClient | None:
         """Return the client passed to the most recent `apply`, if any."""
         return self._client
 
 
 _REGISTRY = AdapterRegistry()
+# Serialize patch install/uninstall — monkeypatching BaseTool/ToolNode is a
+# process-global mutation; a lock makes the check-then-apply atomic against
+# concurrent init() calls (GAP-H-1).
+_PATCH_LOCK = threading.Lock()
 
 
-def apply_patches(client: SidecarClient) -> None:
-    """Install the default adapter set. Idempotent per identical client."""
-    if _REGISTRY.is_installed():
-        if _REGISTRY.client is client:
-            return
-        raise RuntimeError(
-            "Qortara patches already installed with a different client. "
-            "Call qortara_governance.unpatch_all() first."
-        )
-    _REGISTRY.apply(client, _default_adapters())
+def apply_patches(client: DecisionClient, *, observe: bool = False) -> None:
+    """Install the default adapter set. Idempotent per identical client.
+
+    `observe=True` (policy_mode=observe) installs shadow-mode wrappers that log
+    would-be policy blocks instead of raising. Default is enforce.
+    """
+    with _PATCH_LOCK:
+        if _REGISTRY.is_installed():
+            if _REGISTRY.client is client:
+                return
+            raise RuntimeError(
+                "Qortara patches already installed with a different client. "
+                "Call qortara_governance.unpatch_all() first."
+            )
+        _REGISTRY.apply(client, _default_adapters(observe))
 
 
 def unpatch_all() -> None:
     """Restore byte-identical originals. Required for test teardown."""
-    _REGISTRY.unpatch_all()
+    with _PATCH_LOCK:
+        _REGISTRY.unpatch_all()
 
 
 def is_patched() -> bool:
@@ -126,6 +141,6 @@ def is_patched() -> bool:
     return _REGISTRY.is_installed()
 
 
-def get_client() -> SidecarClient | None:
+def get_client() -> DecisionClient | None:
     """Return the currently-installed client, or None."""
     return _REGISTRY.client

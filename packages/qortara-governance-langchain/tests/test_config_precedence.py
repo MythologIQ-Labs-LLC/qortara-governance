@@ -12,14 +12,19 @@ def test_defaults_when_no_env_no_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:
         "QORTARA_SIDECAR_ENDPOINT",
         "QORTARA_TENANT_KEY",
         "QORTARA_POLICY_MODE",
-        "QORTARA_OFFLINE_POLICY",
     ]:
         monkeypatch.delenv(var, raising=False)
     cfg = load_config()
     assert cfg.sidecar_endpoint is None
     assert cfg.tenant_key is None
     assert cfg.policy_mode == PolicyMode.ENFORCE
-    assert cfg.offline_policy_path is None
+
+
+def test_config_has_no_offline_policy_path() -> None:
+    # GAP-CFG-01: offline_policy_path was dead config (resolved, never consumed).
+    # Removed in favour of init_agt() as the supported offline path (ADR-0001).
+    cfg = load_config()
+    assert not hasattr(cfg, "offline_policy_path")
 
 
 def test_env_populates_when_no_kwarg(monkeypatch: pytest.MonkeyPatch) -> None:

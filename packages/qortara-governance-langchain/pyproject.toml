@@ -1,17 +1,16 @@
 [project]
 name = "qortara-governance-langchain"
 version = "0.2.1"
-description = "Qortara Governance — LangChain sidecar SDK. Deep tool-dispatch interception + Portable Trust Attestations + policy enforcement companion to LangSmith."
+description = "Qortara Governance — LangChain/LangGraph dispatch-path enforcement SDK. Bypass-proof BaseTool/ToolNode interception routed into Microsoft AGT's in-process policy engine; optional remote sidecar + hosted Azure decision service."
 authors = [{ name = "MythologIQ Labs", email = "team@mythologiq.studio" }]
 license = { text = "Apache-2.0" }
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["langchain", "governance", "policy", "trust", "agents", "ai"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -22,6 +21,12 @@ dependencies = [
     "httpx>=0.28",
     "opentelemetry-api>=1.30",
     "qortara-protocol==0.1.2",
+    # AGT foundation (ADR-0001): library components only — the `[full]` extra
+    # pulls `-cli` (operator tool) which requires Python>=3.11 and would drop
+    # our 3.10 support. core+protocols+integrations = full library capability.
+    "agent-governance-toolkit-core==4.0.0",
+    "agent-governance-toolkit-protocols==4.0.0",
+    "agent-governance-toolkit-integrations==4.0.0",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +51,7 @@ pythonpath = ["src"]
 asyncio_mode = "auto"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 plugins = ["pydantic.mypy"]
 
 # qortara-protocol 0.1.0 ships without a py.typed marker; allow the missing
@@ -54,4 +59,10 @@ plugins = ["pydantic.mypy"]
 # confirmation that the PyPI-published protocol wheel ships py.typed.
 [[tool.mypy.overrides]]
 module = "qortara_protocol.*"
+ignore_missing_imports = true
+
+# Microsoft AGT (agent-governance-toolkit-core 4.0.0) ships without a py.typed
+# marker; allow the missing stubs for the in-process decision-engine import.
+[[tool.mypy.overrides]]
+module = "agent_control_plane.*"
 ignore_missing_imports = true

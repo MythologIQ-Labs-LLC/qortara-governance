@@ -49,3 +49,16 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# AI governance — runtime/session scratch only (committed DNA under docs/ is tracked)
+.agent/
+.failsafe/
+.qor/
+# Local AI host instruction files (skills distributed under .claude/ etc. remain tracked)
+CLAUDE.md
+GEMINI.md
+COPILOT.md
+CURSOR.md
+# qor:seed -- do not edit between markers
+.qor/session/
+# qor:seed/end

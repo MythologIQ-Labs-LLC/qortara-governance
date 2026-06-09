@@ -3,14 +3,14 @@
 This is the load-bearing test that makes qortara-governance-langchain
 more than a prettier AGT wrapper. AGT's langchain-agentmesh hooks at the
 callback level; a denial via callback is advisory and can be bypassed by
-routes that skip callbacks. Our patches hook at BaseTool.invoke directly,
-so ANY path that reaches tool.invoke() — including native tool-calling
-through AgentExecutor — is governed.
+routes that skip callbacks. Our patches hook at BaseTool.run/arun directly
+(the funnel invoke/ainvoke pass through), so ANY path that reaches tool
+dispatch — including native tool-calling through AgentExecutor AND a direct
+tool.run(...) call — is governed.
 
 What this test exercises:
 1. Patches apply at the BaseTool class level (not per-instance wrappers).
-2. Calling tool.invoke() directly (the code path native tool-calling uses
-   to execute resolved tools) is intercepted.
+2. Calling tool.invoke() (which funnels through the patched run) is intercepted.
 3. On deny, the inner _run is never reached, even though we bypassed any
    callback manager in the calling code path.
 

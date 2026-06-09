@@ -33,6 +33,33 @@ def test_is_exempt_sentinel_detects_class_mark() -> None:
     assert not is_exempt(NormalTool())
 
 
+def test_raw_truthy_attr_does_not_exempt() -> None:
+    # GAP-SEC-07 defense-in-depth: a stray/injected truthy attribute must NOT
+    # exempt — only the decorator (which sets the identity sentinel) does.
+    tool = NormalTool()
+    tool.__qortara_exempt__ = True  # type: ignore[attr-defined]
+    assert is_exempt(tool) is False
+    tool.__qortara_exempt__ = "yes"  # type: ignore[attr-defined]
+    assert is_exempt(tool) is False
+
+
+def test_raw_truthy_attr_tool_is_still_governed(fake_client, ctx) -> None:  # noqa: ANN001
+    # End-to-end: a tool wearing a fake exempt bool is still denied under policy.
+    import pytest
+
+    from qortara_governance.exceptions import QortaraPolicyDenied
+
+    fake_client.scripted_decisions = [DecisionKind.DENY]
+    originals = tool_apply(fake_client)
+    try:
+        tool = NormalTool()
+        tool.__qortara_exempt__ = True  # type: ignore[attr-defined]
+        with pytest.raises(QortaraPolicyDenied):
+            tool.invoke("hello")
+    finally:
+        tool_unpatch(originals)
+
+
 def test_exempt_tool_skips_sidecar_and_runs(fake_client, ctx) -> None:  # noqa: ANN001
     fake_client.scripted_decisions = [DecisionKind.DENY]  # would block if it reached
     originals = tool_apply(fake_client)

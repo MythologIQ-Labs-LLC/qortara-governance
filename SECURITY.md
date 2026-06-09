@@ -20,7 +20,8 @@ If you do not receive an acknowledgement within 5 business days, please follow u
 In scope:
 
 - Any package published from this workspace (currently `qortara-governance-langchain`; additional adapter packages as they land): patch correctness, circuit-breaker behavior, error-handling, dependency vulnerabilities, information disclosure through exception content or logs.
-- The sidecar wire protocol *as consumed by these SDKs*: request construction, response handling, authentication header handling.
+- The default in-process decision path: dispatch-patch enforcement correctness and the AGT-backed decision source (`agt_engine.py`) mapping (fail-closed behavior).
+- The optional remote-daemon sidecar wire protocol *as consumed by these SDKs*: request construction, response handling, authentication header handling.
 
 Out of scope for this repository's advisory process:
 

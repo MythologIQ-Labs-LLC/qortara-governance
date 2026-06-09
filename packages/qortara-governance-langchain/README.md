@@ -21,6 +21,8 @@ Native tool-calling agents — anything using `OpenAIToolsAgent`, `create_tool_c
 
 This is the "wrapper-bypass" gap [tracked as AGT issue #73](https://github.com/microsoft/agent-governance-toolkit/issues/73): observability is not enforcement.
 
+> **Built on AGT.** qortara extends Microsoft's [Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) (a dependency, MIT) rather than reimplementing it: AGT provides the policy engine, identity, sandboxing, and OWASP-Agentic compliance; qortara adds the bypass-proof dispatch-path hook that closes #73 and routes decisions into AGT's engine. See [`docs/adr/0001`](../../docs/adr/0001-agt-foundation-vendoring.md). Requires Python ≥3.11 (AGT 4.0 floor).
+
 ## What this package does
 
 It places a synchronous decision point on the dispatch path itself:
@@ -32,13 +34,14 @@ It places a synchronous decision point on the dispatch path itself:
                              │ resolve tool
                              ▼
                   ┌──────────────────────┐
-                  │ BaseTool.invoke()    │  ← intercepted
+                  │  BaseTool.run()      │  ← intercepted
                   └──────────┬───────────┘
                              │
                              ▼
                   ┌──────────────────────┐
                   │  Policy evaluation   │
-                  │   (local sidecar)    │
+                  │ (in-process AGT, or  │
+                  │   remote sidecar)    │
                   └──────────┬───────────┘
             allow │ deny │ approval │ exempt
             ──────┼──────┼──────────┼──────
@@ -46,7 +49,7 @@ It places a synchronous decision point on the dispatch path itself:
             tool runs  exception  exception
 ```
 
-Every native tool dispatch passes through. Denied calls raise `QortaraPolicyDenied`; calls requiring human approval raise `QortaraApprovalRequired` with an approval URL; allowed calls execute normally. No tool rewriting, no callback re-registration, no agent code changes.
+The hook sits on `BaseTool.run`/`.arun` — the dispatch funnel that `invoke()` and `ainvoke()` both call — so `invoke`, `ainvoke`, `run`, and `arun` are all governed by one decision per dispatch. Denied calls raise `QortaraPolicyDenied`; calls requiring human approval raise `QortaraApprovalRequired` with an approval URL; allowed calls execute normally. No tool rewriting, no callback re-registration, no agent code changes. (The per-subclass private impls `_run`/`_arun` are not patchable at the `BaseTool` class level; calling them directly to skip dispatch is the cooperative-process boundary — see THREAT-MODEL §5.)
 
 ## Quickstart
 
@@ -59,10 +62,14 @@ pip install 'qortara-governance-langchain[langgraph]'
 
 ```python
 import qortara_governance
+from qortara_governance import AgentContext, set_context
 from langchain_core.tools import tool
 from langchain.agents import AgentExecutor
 
-qortara_governance.init()
+# Local enforcement, in-process via the bundled Microsoft AGT engine (no sidecar).
+qortara_governance.init_agt(agent_id="my-agent", allowed_tools=["lookup"])
+set_context(AgentContext(tenant_id="t", agent_id="my-agent", session_id="s"))
+# (Remote/daemon deployments use qortara_governance.init() + QORTARA_SIDECAR_ENDPOINT instead.)
 
 @tool
 def send_email(to: str, body: str) -> str:
@@ -79,7 +86,7 @@ except qortara_governance.QortaraApprovalRequired as needs_approval:
     log.info("approval needed at: %s", needs_approval.approval_url)
 ```
 
-Requires Python 3.10+ and `langchain-core >= 0.3`.
+Requires Python 3.11+ and `langchain-core >= 0.3`.
 
 ## Decision model
 
@@ -91,6 +98,8 @@ Every intercepted call resolves to one of four states:
 | `deny` | Raise `QortaraPolicyDenied` with rationale + policy ID | Hard-stop policies (compliance, classification, locked-down tools) |
 | `require_approval` | Raise `QortaraApprovalRequired` with an approval URL | Higher-blast-radius calls that should pause for a human |
 | `exempt` | Execute without evaluation, but emit evidence | Pre-trusted tools (clocks, ID generators) |
+
+**Which plane emits which decision.** The in-process AGT engine (`init_agt`) is **binary — `allow` or `deny`** (default-deny, fail-closed); it does not emit `require_approval`. `require_approval` (and the transform kinds `downgrade`/`redact`/`sandbox`) come from the **remote sidecar / hosted decision plane** (`init`). The SDK routes whatever it receives: `require_approval` → `QortaraApprovalRequired`; any decision kind it does not implement (the transform kinds) → **deny-closed** with a rationale. Separately, `policy_mode="observe"` turns every would-be block into a logged-but-allowed shadow decision (see [Configuration](#configuration)).
 
 Exempt tools opt out of evaluation but still produce an audit record:
 
@@ -118,15 +127,17 @@ This package is an **enforcement point**, not a complete governance system:
 | Multi-tenant evidence ledger and retention | Qortara Cloud Governance |
 | Compliance reporting and audit surfaces | Qortara Cloud Governance |
 
-For air-gapped or local-only deployments: set `QORTARA_OFFLINE_POLICY` to a local policy pack path. The SDK and sidecar run standalone with no network dependency.
+For air-gapped or local-only deployments: use `init_agt(...)`, which runs the decision engine (Microsoft AGT) **in-process** with no sidecar and no network dependency (see ADR-0001).
 
 For hosted policy distribution and cross-organization features: provide a `tenant_key` and Qortara Cloud Governance handles policy sync, federation, and long-term retention. Nothing in this package requires the hosted plane.
 
-## Sidecar
+## Sidecar (optional remote-daemon mode)
 
-The SDK talks to a local sidecar over HTTP. Two run modes:
+> **Default is in-process.** `init_agt(...)` runs the decision engine (Microsoft AGT) inside your process — **no sidecar required**. The sidecar below is an *optional* remote-daemon deployment selected via `init()`; the diagrams/tables in this section describe that mode.
 
-- **Subprocess (default)** — `init()` spawns the sidecar as a child process bound to `127.0.0.1` on an ephemeral port. Terminates with the parent. No configuration required.
+The SDK can alternatively talk to a remote sidecar over HTTP. Two run modes:
+
+- **Subprocess** — `init()` spawns the sidecar as a child process bound to `127.0.0.1` on an ephemeral port. Terminates with the parent.
 - **Daemon** — run the sidecar externally and set `QORTARA_SIDECAR_ENDPOINT=http://host:port`. `init()` uses the existing endpoint instead of spawning.
 
 If the sidecar becomes unreachable, the SDK enters a circuit-breaker state that **fails closed** for a short cooldown. Calls during that window raise `QortaraSidecarUnavailable`.
@@ -137,10 +148,22 @@ If the sidecar becomes unreachable, the SDK enters a circuit-breaker state that 
 |---|---|---|---|
 | `tenant_key` | `QORTARA_TENANT_KEY` | *(none)* | Required for hosted decisions; optional for local-only policy packs |
 | `sidecar_endpoint` | `QORTARA_SIDECAR_ENDPOINT` | *(spawn subprocess)* | Set to use an external daemon |
-| `policy_mode` | `QORTARA_POLICY_MODE` | `enforce` | `enforce` raises on deny; `observe` logs but executes |
-| `offline_policy_path` | `QORTARA_OFFLINE_POLICY` | *(none)* | Path to a local policy pack for air-gapped environments |
+| `policy_mode` | `QORTARA_POLICY_MODE` | `enforce` | `enforce` raises on a non-permit decision; `observe` is a shadow/dry-run mode that logs every would-be block at WARNING (via the `qortara_governance` logger) and lets execution proceed. Honoured by both `init()` and `init_agt(policy_mode=...)`. |
 
 Resolution order: `init()` kwarg → env var → default.
+
+> Air-gapped / offline policy evaluation is provided by `init_agt(...)` (in-process AGT), not a config flag.
+
+### Ungoverned dispatch (no agent context)
+
+Once `init()`/`init_agt()` patch the tool-dispatch methods, a dispatch off a code path that never set an `AgentContext` runs **ungoverned** (policy cannot evaluate it). The SDK emits a `QortaraUngovernedDispatchWarning` on each such call rather than failing closed by default, because the patched methods are process-global and some non-agent call paths legitimately run uncontextualized. To make ungoverned dispatch fail closed, escalate the category to an error:
+
+```python
+import warnings
+from qortara_governance import QortaraUngovernedDispatchWarning
+
+warnings.filterwarnings("error", category=QortaraUngovernedDispatchWarning)
+```
 
 ## Observability
 
@@ -155,15 +178,17 @@ W3C `traceparent` propagates on every sidecar call, so evidence records and Lang
 
 ## Data handling
 
-The SDK forwards the arguments of each intercepted tool call to the sidecar for policy evaluation. Tool arguments may contain sensitive content depending on how your tools are designed. In regulated environments, review which tool arguments will cross the SDK/sidecar boundary and ensure your sidecar deployment — and its storage, if any — satisfies your data-classification requirements.
+In the **default in-process mode** (`init_agt`), tool arguments are evaluated by the AGT policy engine **inside your process** — they never cross a network boundary. Argument-level checks (SQL/code/path) run only on this in-process path.
 
-Subprocess mode keeps all data on `localhost` for the lifetime of the process. Daemon mode depends on the network path you configure.
+In the **optional remote sidecar mode** (`init()`), the SDK sends a normalized `ActionRequest` (tool identity, capability, trace + agent context) and does **not** inline the raw tool arguments over the wire — so the sidecar performs identity/role/policy decisions, not raw-argument inspection. Tool arguments may still be sensitive; in regulated environments review what the in-process engine sees and what (if anything) you forward to a remote sidecar, and ensure any sidecar storage satisfies your data-classification requirements.
+
+Subprocess sidecar mode keeps all traffic on `localhost`; daemon mode depends on the network path you configure.
 
 ## Compatibility
 
 | Dependency | Supported |
 |---|---|
-| Python | 3.10, 3.11, 3.12, 3.13 |
+| Python | 3.11, 3.12, 3.13 |
 | `langchain-core` | >= 0.3 |
 | `langgraph` | >= 0.2 (optional) |
 
