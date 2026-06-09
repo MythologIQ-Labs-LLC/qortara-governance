@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import httpx
 
 from qortara_governance.exceptions import QortaraSidecarUnavailable
+from qortara_governance.protocol_version import PROTOCOL_VERSION
 from qortara_protocol import ActionDecision, ActionRequest, DecisionKind, EvidenceRecord
 
 _BREAKER_THRESHOLD = 5
@@ -80,13 +81,19 @@ class SidecarClient:
         if self._breaker.consecutive_failures >= _BREAKER_THRESHOLD:
             self._breaker.tripped_at = time.time()
 
-    def decide(self, request: ActionRequest) -> ActionDecision:
-        """POST /v0.1/decisions — returns ActionDecision; deny-all on breaker trip."""
+    def decide(self, request: ActionRequest, tool_input: object = None) -> ActionDecision:
+        """POST /v0.1/decisions — returns ActionDecision; deny-all on breaker trip.
+
+        `tool_input` is accepted for interface parity with in-process decision
+        sources but is intentionally NOT inlined onto the wire (payload privacy);
+        the sidecar receives a reference, never the raw arguments.
+        """
+        del tool_input
         if self._breaker_tripped():
             return _deny_all("sidecar circuit breaker tripped — deny-closed")
         try:
             resp = self._client.post(
-                "/v0.1/decisions", json=request.model_dump(mode="json")
+                f"/{PROTOCOL_VERSION}/decisions", json=request.model_dump(mode="json")
             )
             if resp.status_code >= 500:
                 self._record_failure()
@@ -104,7 +111,7 @@ class SidecarClient:
             return
         payload = [r.model_dump(mode="json") for r in records]
         try:
-            self._client.post("/v0.1/evidence", json=payload)
+            self._client.post(f"/{PROTOCOL_VERSION}/evidence", json=payload)
             self._record_success()
         except httpx.RequestError:
             self._record_failure()
@@ -112,7 +119,7 @@ class SidecarClient:
     def health(self) -> bool:
         """GET /v0.1/health — returns True on 2xx; resets breaker on success."""
         try:
-            resp = self._client.get("/v0.1/health")
+            resp = self._client.get(f"/{PROTOCOL_VERSION}/health")
             ok = 200 <= resp.status_code < 300
             if ok:
                 self._record_success()

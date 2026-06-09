@@ -21,6 +21,8 @@ Native tool-calling agents — anything using `OpenAIToolsAgent`, `create_tool_c
 
 This is the "wrapper-bypass" gap [tracked as AGT issue #73](https://github.com/microsoft/agent-governance-toolkit/issues/73): observability is not enforcement.
 
+> **Built on AGT.** qortara extends Microsoft's [Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) (a dependency, MIT) rather than reimplementing it: AGT provides the policy engine, identity, sandboxing, and OWASP-Agentic compliance; qortara adds the bypass-proof dispatch-path hook that closes #73 and routes decisions into AGT's engine. See [`docs/adr/0001`](../../docs/adr/0001-agt-foundation-vendoring.md). Requires Python ≥3.11 (AGT 4.0 floor).
+
 ## What this package does
 
 It places a synchronous decision point on the dispatch path itself:
@@ -59,10 +61,14 @@ pip install 'qortara-governance-langchain[langgraph]'
 
 ```python
 import qortara_governance
+from qortara_governance import AgentContext, set_context
 from langchain_core.tools import tool
 from langchain.agents import AgentExecutor
 
-qortara_governance.init()
+# Local enforcement, in-process via the bundled Microsoft AGT engine (no sidecar).
+qortara_governance.init_agt(agent_id="my-agent", allowed_tools=["lookup"])
+set_context(AgentContext(tenant_id="t", agent_id="my-agent", session_id="s"))
+# (Remote/daemon deployments use qortara_governance.init() + QORTARA_SIDECAR_ENDPOINT instead.)
 
 @tool
 def send_email(to: str, body: str) -> str:
@@ -122,11 +128,13 @@ For air-gapped or local-only deployments: set `QORTARA_OFFLINE_POLICY` to a loca
 
 For hosted policy distribution and cross-organization features: provide a `tenant_key` and Qortara Cloud Governance handles policy sync, federation, and long-term retention. Nothing in this package requires the hosted plane.
 
-## Sidecar
+## Sidecar (optional remote-daemon mode)
 
-The SDK talks to a local sidecar over HTTP. Two run modes:
+> **Default is in-process.** `init_agt(...)` runs the decision engine (Microsoft AGT) inside your process — **no sidecar required**. The sidecar below is an *optional* remote-daemon deployment selected via `init()`; the diagrams/tables in this section describe that mode.
 
-- **Subprocess (default)** — `init()` spawns the sidecar as a child process bound to `127.0.0.1` on an ephemeral port. Terminates with the parent. No configuration required.
+The SDK can alternatively talk to a remote sidecar over HTTP. Two run modes:
+
+- **Subprocess** — `init()` spawns the sidecar as a child process bound to `127.0.0.1` on an ephemeral port. Terminates with the parent.
 - **Daemon** — run the sidecar externally and set `QORTARA_SIDECAR_ENDPOINT=http://host:port`. `init()` uses the existing endpoint instead of spawning.
 
 If the sidecar becomes unreachable, the SDK enters a circuit-breaker state that **fails closed** for a short cooldown. Calls during that window raise `QortaraSidecarUnavailable`.

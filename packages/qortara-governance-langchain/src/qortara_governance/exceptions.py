@@ -1,6 +1,19 @@
-"""Public exceptions raised by Qortara Governance SDK."""
+"""Public exceptions raised by Qortara Governance SDK.
+
+`__all__` is the frozen Beta exception contract: consumers may catch any of
+these names and rely on the inheritance shape (all derive from QortaraError).
+Additions are minor-version compatible; removals/renames are breaking.
+"""
 
 from __future__ import annotations
+
+__all__ = [
+    "QortaraError",
+    "QortaraPolicyDenied",
+    "QortaraApprovalRequired",
+    "QortaraSidecarUnavailable",
+    "QortaraProtocolMismatch",
+]
 
 
 class QortaraError(Exception):
@@ -33,3 +46,14 @@ class QortaraApprovalRequired(QortaraError):
 
 class QortaraSidecarUnavailable(QortaraError):
     """Sidecar unreachable and circuit breaker has tripped."""
+
+
+class QortaraProtocolMismatch(QortaraError):
+    """SDK and sidecar speak incompatible wire-protocol major versions."""
+
+    def __init__(self, expected: str, received: str) -> None:
+        self.expected = expected
+        self.received = received
+        super().__init__(
+            f"incompatible protocol version: expected {expected}, received {received}"
+        )

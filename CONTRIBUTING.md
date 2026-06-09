@@ -32,7 +32,7 @@ Both `ruff` and `mypy` are run in CI on every PR.
 
 ## Scope of this package
 
-This repository ships the client-side SDK only: patches, config resolution, the sidecar HTTP client, and the public exception surface. The sidecar itself and the policy decision engine are not part of this repository.
+This repository ships the integration + deterministic-enforcement SDK: the dispatch-path patches, config resolution, the AGT-backed in-process decision source (`agt_engine.py`), an optional remote-daemon sidecar client, and the public exception surface. The **policy decision engine is Microsoft AGT** (a dependency — `agent-governance-toolkit-*`), not vendored here; the proprietary hosted decision service is also out of repo (see [`docs/ARCHITECTURE-BOUNDARIES.md`](docs/ARCHITECTURE-BOUNDARIES.md)).
 
 Changes welcomed in-scope:
 
@@ -43,9 +43,9 @@ Changes welcomed in-scope:
 
 Out of scope here (handle elsewhere):
 
-- Policy language changes
-- Sidecar wire-protocol changes — submit as an issue first, we'll coordinate
-- Hosted decision-plane behavior
+- Policy language / AGT policy-engine internals (upstream in Microsoft AGT)
+- Sidecar wire-protocol changes (optional remote-daemon mode) — submit as an issue first, we'll coordinate
+- Hosted decision-service / managed Azure behavior
 
 ## Adapter extensions
 

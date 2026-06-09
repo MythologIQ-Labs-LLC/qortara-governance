@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from qortara_governance import contract
+from qortara_governance.agt_engine import AgtDecisionClient, AgtPolicyAdapter
 from qortara_governance.callback import QortaraCallbackHandler
 from qortara_governance.client import SidecarClient
 from qortara_governance.config import Config, PolicyMode, load_config
@@ -22,27 +23,35 @@ from qortara_governance.exceptions import (
     QortaraApprovalRequired,
     QortaraError,
     QortaraPolicyDenied,
+    QortaraProtocolMismatch,
     QortaraSidecarUnavailable,
 )
 from qortara_governance.launcher import launch
 from qortara_governance.patches import apply_patches, unpatch_all
+from qortara_governance.protocol_version import PROTOCOL_VERSION, require_compatible_protocol
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 __all__ = [
+    "PROTOCOL_VERSION",
     "AgentContext",
+    "AgtDecisionClient",
+    "AgtPolicyAdapter",
     "Config",
     "PolicyMode",
     "QortaraApprovalRequired",
     "QortaraCallbackHandler",
     "QortaraError",
     "QortaraPolicyDenied",
+    "QortaraProtocolMismatch",
     "QortaraSidecarUnavailable",
     "contract",
     "get_context",
     "init",
+    "init_agt",
     "is_exempt",
     "qortara_exempt",
+    "require_compatible_protocol",
     "set_context",
     "unpatch_all",
 ]
@@ -107,6 +116,20 @@ def init(
     client.require_reachable()
     apply_patches(client)
     _FINGERPRINT = new_fp
+
+
+def init_agt(agent_id: str, allowed_tools: list[str]) -> AgtPolicyAdapter:
+    """Initialize in-process enforcement backed by Microsoft AGT (ADR-0001).
+
+    Installs the dispatch patch with an AGT-backed decision source — no sidecar
+    needed locally. `agent_id` is the AGT policy role; `allowed_tools` is its
+    allow-list (default-deny for everything else). Returns the adapter so the
+    caller can grant further roles. Set an AgentContext(agent_id=...) so the
+    patch enforces on this agent's dispatches.
+    """
+    adapter = AgtPolicyAdapter().allow(agent_id, allowed_tools)
+    apply_patches(AgtDecisionClient(adapter))
+    return adapter
 
 
 # Keep direct exports for test teardown reach-through.

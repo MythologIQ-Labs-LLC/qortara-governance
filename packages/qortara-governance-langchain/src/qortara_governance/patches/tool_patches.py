@@ -35,7 +35,7 @@ def _decide_or_raise(tool: object, tool_input: Any, client: SidecarClient) -> No
         return
     tool_name = getattr(tool, "name", type(tool).__name__)
     request = build_tool_action(tool_name, tool_input, ctx)
-    decision = client.decide(request)
+    decision = client.decide(request, tool_input)
     if decision.decision_kind == DecisionKind.DENY:
         raise QortaraPolicyDenied(
             rationale=decision.rationale,
