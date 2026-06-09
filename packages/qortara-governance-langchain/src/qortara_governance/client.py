@@ -8,18 +8,24 @@ any successful health check.
 from __future__ import annotations
 
 import time
+import warnings
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import httpx
 from pydantic import ValidationError
 
-from qortara_governance.exceptions import QortaraSidecarUnavailable
+from qortara_governance.exceptions import (
+    QortaraInsecureTransportWarning,
+    QortaraSidecarUnavailable,
+)
 from qortara_governance.protocol_version import PROTOCOL_VERSION
 from qortara_protocol import ActionDecision, ActionRequest, DecisionKind, EvidenceRecord
 
 _BREAKER_THRESHOLD = 5
 _BREAKER_COOLDOWN_S = 30.0
 _DEFAULT_TIMEOUT_S = 10.0
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
 
 
 @dataclass
@@ -41,6 +47,11 @@ def _deny_all(rationale: str) -> ActionDecision:
 class SidecarClient:
     """httpx-based sidecar client with circuit breaker and deny-closed failure."""
 
+    # This client performs blocking network IO in decide(); async dispatch
+    # wrappers run it off the event loop (see patches). AgtDecisionClient sets
+    # this False (in-process, no IO).
+    blocking_io: bool = True
+
     def __init__(
         self,
         endpoint: str,
@@ -52,10 +63,25 @@ class SidecarClient:
         self._headers: dict[str, str] = {}
         if tenant_key:
             self._headers["Ocp-Apim-Subscription-Key"] = tenant_key
+            self._warn_if_cleartext_credential()
         self._client = httpx.Client(
             base_url=self._endpoint, headers=self._headers, timeout=timeout_s
         )
         self._breaker = _BreakerState()
+
+    def _warn_if_cleartext_credential(self) -> None:
+        """Warn when a tenant_key would be sent over a non-TLS, non-loopback endpoint."""
+        parts = urlsplit(self._endpoint)
+        host = parts.hostname or ""
+        if parts.scheme == "http" and host not in _LOOPBACK_HOSTS:
+            warnings.warn(
+                f"qortara: tenant_key is set but the sidecar endpoint {self._endpoint!r} "
+                "uses plaintext http to a non-loopback host — the subscription "
+                "credential will be sent in CLEARTEXT. Use https, or escalate "
+                "QortaraInsecureTransportWarning to an error to refuse insecure transport.",
+                QortaraInsecureTransportWarning,
+                stacklevel=3,
+            )
 
     def close(self) -> None:
         self._client.close()

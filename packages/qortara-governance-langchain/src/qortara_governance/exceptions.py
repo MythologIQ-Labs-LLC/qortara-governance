@@ -17,6 +17,7 @@ __all__ = [
     "QortaraSidecarUnavailable",
     "QortaraProtocolMismatch",
     "QortaraUngovernedDispatchWarning",
+    "QortaraInsecureTransportWarning",
 ]
 
 
@@ -77,4 +78,18 @@ class QortaraUngovernedDispatchWarning(UserWarning):
         import warnings
         from qortara_governance import QortaraUngovernedDispatchWarning
         warnings.filterwarnings("error", category=QortaraUngovernedDispatchWarning)
+    """
+
+
+class QortaraInsecureTransportWarning(UserWarning):
+    """A tenant_key (subscription credential) is configured over a plaintext transport.
+
+    Raised when the sidecar endpoint scheme is ``http`` (not ``https``) and the host is
+    not loopback, while a ``tenant_key`` is set — the credential would be sent in
+    cleartext. The client still operates; escalate this category to an error to refuse
+    insecure credential transport::
+
+        import warnings
+        from qortara_governance import QortaraInsecureTransportWarning
+        warnings.filterwarnings("error", category=QortaraInsecureTransportWarning)
     """

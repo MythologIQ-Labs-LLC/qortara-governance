@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import MappingProxyType
 from typing import Any, Callable
 
@@ -102,7 +103,13 @@ def _make_async_wrapper(
     async def wrapper(
         self: object, input: Any, config: Any = None, **kwargs: Any
     ) -> Any:
-        _decide_each(_extract_tool_calls(input), client, observe)
+        calls = _extract_tool_calls(input)
+        if getattr(client, "blocking_io", True):
+            # Sidecar (blocking httpx) — run decisions off the event loop;
+            # asyncio.to_thread propagates contextvars for get_context().
+            await asyncio.to_thread(_decide_each, calls, client, observe)
+        else:
+            _decide_each(calls, client, observe)
         return await original(self, input, config, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__

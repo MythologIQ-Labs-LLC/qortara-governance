@@ -22,6 +22,7 @@ Exports:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import warnings
 from types import MappingProxyType
@@ -148,7 +149,14 @@ def _make_async_wrapper(
     original: _OriginalMethod, client: SidecarClient, observe: bool = False
 ) -> _OriginalMethod:
     async def wrapper(self: object, *args: Any, **kwargs: Any) -> Any:
-        _decide_or_raise(self, _tool_input_of(args, kwargs), client, observe)
+        tool_input = _tool_input_of(args, kwargs)
+        if getattr(client, "blocking_io", True):
+            # Sidecar (blocking httpx) — run off the event loop so the decision
+            # doesn't stall the loop. asyncio.to_thread propagates contextvars,
+            # so get_context() still resolves in the worker thread.
+            await asyncio.to_thread(_decide_or_raise, self, tool_input, client, observe)
+        else:
+            _decide_or_raise(self, tool_input, client, observe)
         return await original(self, *args, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__

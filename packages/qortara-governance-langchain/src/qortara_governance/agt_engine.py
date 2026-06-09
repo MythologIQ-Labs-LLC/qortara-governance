@@ -71,6 +71,10 @@ class AgtPolicyAdapter:
 class AgtDecisionClient:
     """Decision source backed by AGT's PolicyEngine; drop-in for SidecarClient."""
 
+    # In-process decision engine: no network IO, so async dispatch wrappers call
+    # decide() inline rather than dispatching it to a worker thread.
+    blocking_io: bool = False
+
     def __init__(self, adapter: AgtPolicyAdapter) -> None:
         self._adapter = adapter
         self._policy_id = f"agt-core:{agt_version() or 'unknown'}"

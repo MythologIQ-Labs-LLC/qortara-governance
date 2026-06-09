@@ -22,6 +22,7 @@ from qortara_governance.decorators import is_exempt, qortara_exempt
 from qortara_governance.exceptions import (
     QortaraApprovalRequired,
     QortaraError,
+    QortaraInsecureTransportWarning,
     QortaraPolicyDenied,
     QortaraProtocolMismatch,
     QortaraSidecarUnavailable,
@@ -46,6 +47,7 @@ __all__ = [
     "QortaraApprovalRequired",
     "QortaraCallbackHandler",
     "QortaraError",
+    "QortaraInsecureTransportWarning",
     "QortaraPolicyDenied",
     "QortaraProtocolMismatch",
     "QortaraSidecarUnavailable",

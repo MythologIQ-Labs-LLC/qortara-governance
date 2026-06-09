@@ -852,5 +852,45 @@ SHA256(content_hash + previous_hash) = cdc2f12dd9a92b41a097d2d9ff53f5624775b53cd
 **Decision**: Reality == Promise. **GAP-SEC-07 RESOLVED (defense-in-depth)** — removed the unread `__qortara_original__` handle from all four dispatch wrappers (originals live only in the unpatch dict; `__qortara_wrapped__` retained); `qortara_exempt` now sets a module-private identity sentinel and `is_exempt` checks `is _EXEMPT_MARKER`, so a stray/injected `__qortara_exempt__ = True` no longer disables enforcement — only the decorator does. THREAT-MODEL §5 (hostile in-process code) intentionally unchanged. **GAP-CI-01 RESOLVED** — bandit + pip-audit are now blocking in `security.yml` (`|| true` removed; both pass clean); pip-audit invocation corrected to audit the synced project venv (`uv run --with pip-audit`), not an isolated tool env, with a documented `--ignore-vuln` escape; SBOM kept non-blocking by design. **GAP-CI-02 RESOLVED** — gitleaks tarball pinned to SHA256 `5bc41815…e3ba` (from the official release checksums.txt), verified via `sha256sum -c` before extraction. 3 new tests (raw-attr-does-not-exempt unit + end-to-end; wrappers-expose-no-original); existing decorator-exempt tests still pass. Full suite **119 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-07/CI-01/CI-02 marked RESOLVED.
 
 ---
+
+### Entry #40: GATE TRIBUNAL — Phase 17 (MED/LOW async + TLS hardening plan)
+
+**Timestamp**: 2026-06-09T18:00:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase17-medlow-async-tls-hardening.md) = 428a3c55a4d9cbe9c0643040994e396178c02e4aa0c744105982b4b01f95c2c5
+
+**Previous Hash**: 2988fa1e9dfcd9100569973bfbfb822b66b29f33536ea64de2237d9fe8138ddc
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 784462d399fbad82bd2cfacff3a32dc1a62f19912ddf4e5443884df029bff2b9
+
+**Decision**: Plan to fix the two clear-value MED items — blocking httpx in the async wrapper (run the decision via `asyncio.to_thread` for `blocking_io` clients; inline for in-process AGT; contextvars propagate) and tenant_key over cleartext http (warn `QortaraInsecureTransportWarning` for non-TLS non-loopback endpoints) — cleared all binding passes. Triage explicitly DEFERRED with rationale: breaker half-open (acceptable fail-closed design), `policy_version_sha256` non-sha256 values (external `qortara_protocol` field — not ours to rename), and `functools.wraps` on wrappers (would re-add `__wrapped__`, undoing GAP-SEC-07). No fail-open introduced; sync path unchanged. Cleared for /qor-implement.
+
+---
+
+### Entry #41: SEAL — Phase 17 (non-blocking async decisions + cleartext-credential warning)
+
+**Timestamp**: 2026-06-09T18:20:00Z
+**Phase**: SEAL (substantiate, local — commit+push to PR #13)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(client + agt_engine + tool_patches + langgraph_patches + exceptions + __init__) = 14af072d8a8ecc078ff9375efa6318718e0d2671efda53d229c40b5b02a4622a
+
+**Previous Hash**: 428a3c55a4d9cbe9c0643040994e396178c02e4aa0c744105982b4b01f95c2c5
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = ad2b5b58c14bb12594faa7891ac959280186da286dabbe246474f7ab04f44b2c
+
+**Decision**: Reality == Promise. **MED (async blocking) RESOLVED** — decision clients declare `blocking_io` (`SidecarClient`=True, `AgtDecisionClient`=False); both async dispatch wrappers (BaseTool `arun`, LangGraph `ainvoke`) run the decision via `asyncio.to_thread` when `blocking_io` (off the event loop; contextvars propagate so `get_context()` resolves) and inline otherwise — DENY/approval still raise before the tool body. **MED (cleartext credential) RESOLVED** — `SidecarClient.__init__` emits `QortaraInsecureTransportWarning` (new public class) when a `tenant_key` is set against a plaintext `http://` non-loopback endpoint; escalatable to an error. DEFERRED w/ rationale: breaker half-open, `policy_version_sha256` naming (external protocol), `functools.wraps` (SEC-07). 8 new tests (async decide off-thread vs inline; deny-via-thread blocks; cleartext warns + 4 negative cases). Full suite **127 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief MED/LOW row updated.
+
+---
 *Chain integrity: VALID*
-*All CONFIRMED red-team findings closed except documented residuals. Remaining deferred: DOC-01(rest), require_compatible_protocol wiring (needs sidecar health-version field), MED/LOW hardening.*
+*All CONFIRMED red-team findings remediated. Residuals (intentional): breaker half-open, policy_version_sha256 naming (external protocol field), require_compatible_protocol wiring (needs sidecar health-version field), GAP-DOC-01(rest). The deep-audit remediation program is complete.*
