@@ -24,12 +24,13 @@ def _langgraph_available() -> bool:
         return False
 
 
-def _extract_tool_names(state: Any) -> list[str]:
-    """Best-effort extraction of tool names from a ToolNode invocation state.
+def _extract_tool_calls(state: Any) -> list[tuple[str, dict]]:
+    """Best-effort extraction of (tool name, args) pairs from a ToolNode state.
 
-    LangGraph passes state with a `messages` list containing the last AI message,
-    which may have `tool_calls`. Returns tool names for pre-decision policy check.
-    Falls back to ["<unknown>"] if structure doesn't match.
+    LangGraph passes state with a `messages` list whose last AI message may carry
+    `tool_calls`, each with a `name` and `args` dict. Returning the args (not just
+    the name) lets AGT run argument-level checks on the ToolNode path, matching
+    the BaseTool path. Falls back to [("<unknown>", {})] if structure doesn't match.
     """
     try:
         messages = (
@@ -38,29 +39,35 @@ def _extract_tool_names(state: Any) -> list[str]:
             else getattr(state, "messages", [])
         )
         if not messages:
-            return ["<unknown>"]
+            return [("<unknown>", {})]
         last = messages[-1]
         tool_calls = getattr(last, "tool_calls", None) or (
             last.get("tool_calls") if isinstance(last, dict) else None
         )
         if not tool_calls:
-            return ["<unknown>"]
-        return [
-            tc.get("name", "<unknown>")
-            if isinstance(tc, dict)
-            else getattr(tc, "name", "<unknown>")
-            for tc in tool_calls
-        ]
+            return [("<unknown>", {})]
+        calls: list[tuple[str, dict]] = []
+        for tc in tool_calls:
+            if isinstance(tc, dict):
+                name = tc.get("name", "<unknown>")
+                args = tc.get("args", {})
+            else:
+                name = getattr(tc, "name", "<unknown>")
+                args = getattr(tc, "args", {})
+            calls.append((name, args if isinstance(args, dict) else {}))
+        return calls
     except (AttributeError, TypeError, KeyError):
-        return ["<unknown>"]
+        return [("<unknown>", {})]
 
 
-def _decide_each(tool_names: list[str], client: SidecarClient) -> None:
+def _decide_each(tool_calls: list[tuple[str, dict]], client: SidecarClient) -> None:
     ctx = get_context()
     if ctx is None:
         return
-    for name in tool_names:
-        decision = client.decide(build_toolnode_action(name, ctx))
+    for name, args in tool_calls:
+        # Thread args as tool_input so the in-process AGT decision source runs
+        # argument-level checks (SQL/code/path); SidecarClient ignores it.
+        decision = client.decide(build_toolnode_action(name, ctx), args)
         if decision.decision_kind == DecisionKind.DENY:
             raise QortaraPolicyDenied(
                 rationale=decision.rationale,
@@ -77,7 +84,7 @@ def _decide_each(tool_names: list[str], client: SidecarClient) -> None:
 
 def _make_wrapper(original: _OriginalMethod, client: SidecarClient) -> _OriginalMethod:
     def wrapper(self: object, input: Any, config: Any = None, **kwargs: Any) -> Any:
-        _decide_each(_extract_tool_names(input), client)
+        _decide_each(_extract_tool_calls(input), client)
         return original(self, input, config, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__

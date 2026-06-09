@@ -85,7 +85,7 @@ except qortara_governance.QortaraApprovalRequired as needs_approval:
     log.info("approval needed at: %s", needs_approval.approval_url)
 ```
 
-Requires Python 3.10+ and `langchain-core >= 0.3`.
+Requires Python 3.11+ and `langchain-core >= 0.3`.
 
 ## Decision model
 
@@ -163,15 +163,17 @@ W3C `traceparent` propagates on every sidecar call, so evidence records and Lang
 
 ## Data handling
 
-The SDK forwards the arguments of each intercepted tool call to the sidecar for policy evaluation. Tool arguments may contain sensitive content depending on how your tools are designed. In regulated environments, review which tool arguments will cross the SDK/sidecar boundary and ensure your sidecar deployment — and its storage, if any — satisfies your data-classification requirements.
+In the **default in-process mode** (`init_agt`), tool arguments are evaluated by the AGT policy engine **inside your process** — they never cross a network boundary. Argument-level checks (SQL/code/path) run only on this in-process path.
 
-Subprocess mode keeps all data on `localhost` for the lifetime of the process. Daemon mode depends on the network path you configure.
+In the **optional remote sidecar mode** (`init()`), the SDK sends a normalized `ActionRequest` (tool identity, capability, trace + agent context) and does **not** inline the raw tool arguments over the wire — so the sidecar performs identity/role/policy decisions, not raw-argument inspection. Tool arguments may still be sensitive; in regulated environments review what the in-process engine sees and what (if anything) you forward to a remote sidecar, and ensure any sidecar storage satisfies your data-classification requirements.
+
+Subprocess sidecar mode keeps all traffic on `localhost`; daemon mode depends on the network path you configure.
 
 ## Compatibility
 
 | Dependency | Supported |
 |---|---|
-| Python | 3.10, 3.11, 3.12, 3.13 |
+| Python | 3.11, 3.12, 3.13 |
 | `langchain-core` | >= 0.3 |
 | `langgraph` | >= 0.2 (optional) |
 

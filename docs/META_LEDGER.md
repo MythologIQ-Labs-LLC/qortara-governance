@@ -642,3 +642,49 @@ SHA256(content_hash + previous_hash) = 59cfe7424c8faaedbe3673a54ef734bc9aaabca31
 ---
 *Chain integrity: VALID*
 *Tracking PR #13 CI to green (re-run after this push).*
+
+> **PR #13 CI green** (run 2, commit c92f4bb): test (3.11/3.12/3.13), scan, secrets, governance all pass.
+
+---
+
+### Entry #30: GATE TRIBUNAL — Phase 12 (ToolNode arg-safety + PR#13 doc fixes)
+
+**Timestamp**: 2026-06-09T13:02:00Z
+**Phase**: GATE
+**Author**: Judge (auto-dev orchestration)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(AUDIT_REPORT-phase12.md) = 0b460662f9a504ae40bb86883089b1f300509feb372b89be870c7cf94353a919
+
+**Previous Hash**: 8222f1eeadef05ab7846314dd1fcc9422c3a2c1709f917e6076d27a82ef1538e
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = b4ea13c4a730550c3ca380cfe79e545c29383cbdbddcc7c5a28ad83a5b26d663
+
+**Decision**: Plan to close P1 (ToolNode arg-safety bypass — thread `tool_input` to AGT, parity with BaseTool) + P2a/P2b doc fixes cleared all binding passes. Security-coverage improvement; fail-closed preserved. Cleared for /qor-implement. (P2c roadmap on PR #11 = separate branch, out of scope.)
+
+---
+
+### Entry #31: SEAL — Phase 12 (ToolNode arg-safety + PR#13 doc fixes)
+
+**Timestamp**: 2026-06-09T13:10:00Z
+**Phase**: SEAL (substantiate, local — commit+push to PR #13)
+**Author**: Specialist (auto-dev orchestration)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(langgraph_patches.py + test_agt_toolnode_arg_safety.py + pkg README.md) = 8af7f37c505a6efe86aff46cf6cc48faf08aef40d275657768ee9b5fabdd7cb2
+
+**Previous Hash**: 0b460662f9a504ae40bb86883089b1f300509feb372b89be870c7cf94353a919
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 72f74bbce21d122ccd7504e547cc1b0eb9960764e30392a31fcc49af9c99820c
+
+**Decision**: Reality == Promise. **P1 closed:** `_extract_tool_calls` now returns (name, args) and `_decide_each` threads args as `tool_input` → AGT runs SQL/code/path checks on the ToolNode path (parity with BaseTool); 4 new conformance tests (incl. allow-listed `database_query` + `DROP` → `QortaraPolicyDenied`). **P2a/P2b closed:** README data-handling corrected (sidecar sends normalized ActionRequest, not raw args; arg checks are in-process AGT only); Python compat 3.10 removed in 3 spots (table + "Requires" line + compat). Full suite **83 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. **P2c (PR #11 roadmap)** = separate branch, flagged to operator. Committed + pushed to PR #13.
+
+---
+*Chain integrity: VALID*
+*PR #13 review findings P1/P2a/P2b resolved. Open: P2c roadmap update on PR #11 (operator-sequenced); harden report-only CI gates.*
