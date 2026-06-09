@@ -124,7 +124,7 @@ This package is an **enforcement point**, not a complete governance system:
 | Multi-tenant evidence ledger and retention | Qortara Cloud Governance |
 | Compliance reporting and audit surfaces | Qortara Cloud Governance |
 
-For air-gapped or local-only deployments: set `QORTARA_OFFLINE_POLICY` to a local policy pack path. The SDK and sidecar run standalone with no network dependency.
+For air-gapped or local-only deployments: use `init_agt(...)`, which runs the decision engine (Microsoft AGT) **in-process** with no sidecar and no network dependency (see ADR-0001).
 
 For hosted policy distribution and cross-organization features: provide a `tenant_key` and Qortara Cloud Governance handles policy sync, federation, and long-term retention. Nothing in this package requires the hosted plane.
 
@@ -145,10 +145,22 @@ If the sidecar becomes unreachable, the SDK enters a circuit-breaker state that 
 |---|---|---|---|
 | `tenant_key` | `QORTARA_TENANT_KEY` | *(none)* | Required for hosted decisions; optional for local-only policy packs |
 | `sidecar_endpoint` | `QORTARA_SIDECAR_ENDPOINT` | *(spawn subprocess)* | Set to use an external daemon |
-| `policy_mode` | `QORTARA_POLICY_MODE` | `enforce` | `enforce` raises on deny; `observe` logs but executes |
-| `offline_policy_path` | `QORTARA_OFFLINE_POLICY` | *(none)* | Path to a local policy pack for air-gapped environments |
+| `policy_mode` | `QORTARA_POLICY_MODE` | `enforce` | `enforce` raises on a non-permit decision; `observe` is a shadow/dry-run mode that logs every would-be block at WARNING (via the `qortara_governance` logger) and lets execution proceed. Honoured by both `init()` and `init_agt(policy_mode=...)`. |
 
 Resolution order: `init()` kwarg → env var → default.
+
+> Air-gapped / offline policy evaluation is provided by `init_agt(...)` (in-process AGT), not a config flag.
+
+### Ungoverned dispatch (no agent context)
+
+Once `init()`/`init_agt()` patch the tool-dispatch methods, a dispatch off a code path that never set an `AgentContext` runs **ungoverned** (policy cannot evaluate it). The SDK emits a `QortaraUngovernedDispatchWarning` on each such call rather than failing closed by default, because the patched methods are process-global and some non-agent call paths legitimately run uncontextualized. To make ungoverned dispatch fail closed, escalate the category to an error:
+
+```python
+import warnings
+from qortara_governance import QortaraUngovernedDispatchWarning
+
+warnings.filterwarnings("error", category=QortaraUngovernedDispatchWarning)
+```
 
 ## Observability
 

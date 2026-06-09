@@ -732,5 +732,45 @@ SHA256(content_hash + previous_hash) = 3fa335eb22aa411f1dc6a3cb25894a2a73f31c9ee
 **Decision**: Reality == Promise. Confirmed CRITICAL set RESOLVED: **SEC-02** shared `enforce_decision` permits only ALLOW/EXEMPT/OBSERVE (DOWNGRADE/REDACT/SANDBOX/unknown → deny-closed), used by both BaseTool + ToolNode paths; **SEC-03** `client.decide` catches `ValidationError`/`ValueError` → deny + breaker; **SEC-04** `AgtDecisionClient.decide` try/except → fail-closed DENY; **SEC-06** `ToolNode.ainvoke` patched + restored; **SEC-05** honest docstring + opt-in `capability_aliases` (+ `init_agt` passthrough) + boundary test. 18 adversarial tests; full suite **97 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-02/03/04/05/06 marked RESOLVED. Deferred items (GAP-CAP-01, SEC-01/07/08, CFG-01, CI-01/02, DOC-01, MED/LOW) tracked in the brief.
 
 ---
+
+### Entry #34: GATE TRIBUNAL — Phase 14 (SEC-01 + CFG-01 plan)
+
+**Timestamp**: 2026-06-09T15:05:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase14-sec01-cfg01-honest-config.md) = a51e344f75a6616207fe5f1ca1ccd443cf61f3500c5a1b8187be390cc3f7c05d
+
+**Previous Hash**: f6b5219b10dbeeb6161d6ef59c7ee38881128fe5424c7b41277998af6f7f3ca3
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 86ea6fd112db3609bbba7d2bad984be3d42e9372605265aadd952690ace60126
+
+**Decision**: Plan to close deferred HIGH GAP-SEC-01 (ungoverned-dispatch warning, escalatable to fail-closed) + GAP-CFG-01 (implement OBSERVE shadow mode for real; remove dead `offline_policy_path`) cleared all binding passes. Security pass: OBSERVE is an explicit default-off named mode that logs every would-be block — not silent error fail-open; ENFORCE byte-unchanged; SEC-02/03/04 fail-closed paths intact upstream. Razor: no new module/dep/config (reuses `PolicyMode` + stdlib `warnings`). `require_compatible_protocol` init-wiring held out of scope (health endpoint exposes no peer version). Cleared for /qor-implement.
+
+---
+
+### Entry #35: SEAL — Phase 14 (SEC-01 ungoverned-dispatch signal + CFG-01 honest config)
+
+**Timestamp**: 2026-06-09T15:20:00Z
+**Phase**: SEAL (substantiate, local — commit+push to PR #13)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(tool_patches + langgraph_patches + registry + config + __init__ + exceptions) = bdda8f368309d4444b0e03b3d49c16fed27af1cd03ec0403779adea3339e96fe
+
+**Previous Hash**: a51e344f75a6616207fe5f1ca1ccd443cf61f3500c5a1b8187be390cc3f7c05d
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 9d31e6ad33825aff00a87aa0d0fa49a8a1be484d4f626cc5ec2097a85cc55954
+
+**Decision**: Reality == Promise. **GAP-SEC-01 RESOLVED** — `warn_missing_context()` emits `QortaraUngovernedDispatchWarning` on no-context dispatch on both BaseTool and ToolNode paths (shared helper, can't diverge); exempt tools don't warn; escalating the category to an error via the stdlib `warnings` filter makes ungoverned dispatch fail closed. **GAP-CFG-01 RESOLVED** — `policy_mode=observe` is now a real shadow/dry-run mode (evaluate + log would-be block at WARNING, never raise), threaded `init`/`init_agt`→`apply_patches(observe=)`→adapters→`enforce_decision(observe=)`; `init_agt` gained `policy_mode=`; dead `offline_policy_path`/`QORTARA_OFFLINE_POLICY` removed (air-gapped path is `init_agt`, ADR-0001); README config table corrected (was advertising both unimplemented features). 13 new behavioral/adversarial tests (observe-never-raises-but-logs, enforce-still-raises regression, no-context-warns, filter→error fail-closed, exempt-no-warn, init_agt observe). Full suite **110 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-01/CFG-01 marked RESOLVED.
+
+---
 *Chain integrity: VALID*
-*Red-team CRITICAL set closed. Deferred HIGH/MED/doc/CI items remain (operator-sequenced).*
+*Red-team CRITICAL set + deferred HIGH SEC-01/CFG-01 closed. Remaining deferred: CAP-01, SEC-07, SEC-08, CI-01/02, DOC-01(rest), require_compatible_protocol wiring, MED/LOW.*

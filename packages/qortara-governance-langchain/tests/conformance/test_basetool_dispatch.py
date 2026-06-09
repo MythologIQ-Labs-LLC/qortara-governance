@@ -17,7 +17,11 @@ from qortara_governance import context as _ctxmod
 from qortara_governance.client import SidecarClient
 from qortara_governance.context import AgentContext, set_context
 from qortara_governance.decorators import qortara_exempt
-from qortara_governance.exceptions import QortaraApprovalRequired, QortaraPolicyDenied
+from qortara_governance.exceptions import (
+    QortaraApprovalRequired,
+    QortaraPolicyDenied,
+    QortaraUngovernedDispatchWarning,
+)
 from qortara_protocol import ActionDecision, DecisionKind
 
 _LOG: list[str] = []
@@ -119,10 +123,14 @@ def test_exempt_tool_bypasses_enforcement(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_no_context_no_enforcement(monkeypatch: pytest.MonkeyPatch) -> None:
     # Cooperative-process boundary (THREAT-MODEL §5): no agent context => the
-    # patch returns early and the tool runs even under a DENY decision.
+    # patch cannot evaluate policy, so the tool runs even under a DENY decision.
+    # Since GAP-SEC-01 this is no longer SILENT — it warns
+    # QortaraUngovernedDispatchWarning so the ungoverned dispatch is observable
+    # (operators can escalate the category to an error to fail closed).
     qortara_governance.init(tenant_key="tk-conformance")
     _inject(monkeypatch, DecisionKind.DENY)
     # deliberately do NOT set_context
-    result = recording_tool.invoke({"payload": "nc"})
+    with pytest.warns(QortaraUngovernedDispatchWarning):
+        result = recording_tool.invoke({"payload": "nc"})
     assert result == "ran:nc"
     assert _LOG == ["nc"]

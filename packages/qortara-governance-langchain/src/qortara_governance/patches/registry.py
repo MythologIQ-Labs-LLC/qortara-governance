@@ -24,12 +24,16 @@ from qortara_governance.contract.state import (
 )
 
 
-def _default_adapters() -> list[FrameworkAdapter]:
-    """Return the default adapter list shipped with this SDK."""
+def _default_adapters(observe: bool = False) -> list[FrameworkAdapter]:
+    """Return the default adapter list shipped with this SDK.
+
+    `observe` (policy_mode=observe) is baked into each adapter so its dispatch
+    wrappers log would-be blocks instead of raising (shadow/dry-run mode).
+    """
     from qortara_governance.patches.langgraph_patches import LangGraphToolNodeAdapter
     from qortara_governance.patches.tool_patches import LangChainToolAdapter
 
-    return [LangChainToolAdapter(), LangGraphToolNodeAdapter()]
+    return [LangChainToolAdapter(observe), LangGraphToolNodeAdapter(observe)]
 
 
 class AdapterRegistry:
@@ -104,8 +108,12 @@ class AdapterRegistry:
 _REGISTRY = AdapterRegistry()
 
 
-def apply_patches(client: SidecarClient) -> None:
-    """Install the default adapter set. Idempotent per identical client."""
+def apply_patches(client: SidecarClient, *, observe: bool = False) -> None:
+    """Install the default adapter set. Idempotent per identical client.
+
+    `observe=True` (policy_mode=observe) installs shadow-mode wrappers that log
+    would-be policy blocks instead of raising. Default is enforce.
+    """
     if _REGISTRY.is_installed():
         if _REGISTRY.client is client:
             return
@@ -113,7 +121,7 @@ def apply_patches(client: SidecarClient) -> None:
             "Qortara patches already installed with a different client. "
             "Call qortara_governance.unpatch_all() first."
         )
-    _REGISTRY.apply(client, _default_adapters())
+    _REGISTRY.apply(client, _default_adapters(observe))
 
 
 def unpatch_all() -> None:

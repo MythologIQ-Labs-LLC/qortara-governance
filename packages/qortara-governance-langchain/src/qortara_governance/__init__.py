@@ -25,6 +25,7 @@ from qortara_governance.exceptions import (
     QortaraPolicyDenied,
     QortaraProtocolMismatch,
     QortaraSidecarUnavailable,
+    QortaraUngovernedDispatchWarning,
 )
 from qortara_governance.launcher import launch
 from qortara_governance.patches import apply_patches, unpatch_all
@@ -48,6 +49,7 @@ __all__ = [
     "QortaraPolicyDenied",
     "QortaraProtocolMismatch",
     "QortaraSidecarUnavailable",
+    "QortaraUngovernedDispatchWarning",
     "contract",
     "get_context",
     "init",
@@ -78,17 +80,24 @@ def _fingerprint_of(config: Config) -> _InitFingerprint:
     )
 
 
+def _is_observe(mode: PolicyMode) -> bool:
+    return mode is PolicyMode.OBSERVE
+
+
 def init(
     *,
     tenant_key: str | None = None,
     sidecar_endpoint: str | None = None,
     policy_mode: str | PolicyMode | None = None,
-    offline_policy_path: str | None = None,
 ) -> None:
     """Initialize Qortara Governance for this process.
 
     Calling twice with the same args is a no-op. Calling twice with different
     args raises RuntimeError — call unpatch_all() first if reconfiguring.
+
+    `policy_mode` defaults to `enforce` (deny decisions raise). `observe` is a
+    shadow/dry-run mode: policy is still evaluated and every would-be block is
+    logged at WARNING via the `qortara_governance` logger, but nothing is raised.
 
     On first call:
     - Resolves config (env > kwarg > default)
@@ -102,7 +111,6 @@ def init(
         sidecar_endpoint=sidecar_endpoint,
         tenant_key=tenant_key,
         policy_mode=policy_mode,
-        offline_policy_path=offline_policy_path,
     )
     new_fp = _fingerprint_of(config)
 
@@ -117,7 +125,7 @@ def init(
     launch_result = launch(existing_endpoint=config.sidecar_endpoint)
     client = SidecarClient(launch_result.endpoint, config.tenant_key)
     client.require_reachable()
-    apply_patches(client)
+    apply_patches(client, observe=_is_observe(config.policy_mode))
     _FINGERPRINT = new_fp
 
 
@@ -126,23 +134,29 @@ def init_agt(
     allowed_tools: list[str],
     *,
     capability_aliases: dict[str, str] | None = None,
+    policy_mode: str | PolicyMode = PolicyMode.ENFORCE,
 ) -> AgtPolicyAdapter:
     """Initialize in-process enforcement backed by Microsoft AGT (ADR-0001).
 
     Installs the dispatch patch with an AGT-backed decision source — no sidecar
-    needed locally. `agent_id` is the AGT policy role; `allowed_tools` is its
-    allow-list (default-deny for everything else). `capability_aliases` maps your
-    tool names onto AGT-recognized capability names (e.g. {"sql_db_query":
-    "database_query"}) so AGT's argument-level checks reach them. Returns the
-    adapter so the caller can grant further roles. Set an AgentContext(agent_id=...)
-    so the patch enforces on this agent's dispatches.
+    needed locally (this is also the supported air-gapped / offline path). `agent_id`
+    is the AGT policy role; `allowed_tools` is its allow-list (default-deny for
+    everything else). `capability_aliases` maps your tool names onto AGT-recognized
+    capability names (e.g. {"sql_db_query": "database_query"}) so AGT's
+    argument-level checks reach them. `policy_mode=observe` runs shadow/dry-run
+    (log would-be blocks, never raise). Returns the adapter so the caller can grant
+    further roles. Set an AgentContext(agent_id=...) so the patch enforces on this
+    agent's dispatches.
     """
+    mode = (
+        policy_mode if isinstance(policy_mode, PolicyMode) else PolicyMode(policy_mode)
+    )
     adapter = AgtPolicyAdapter(capability_aliases=capability_aliases).allow(
         agent_id, allowed_tools
     )
     # AgtDecisionClient is a structural drop-in for SidecarClient (same .decide
     # contract); apply_patches is nominally typed to SidecarClient.
-    apply_patches(AgtDecisionClient(adapter))  # type: ignore[arg-type]
+    apply_patches(AgtDecisionClient(adapter), observe=_is_observe(mode))  # type: ignore[arg-type]
     return adapter
 
 

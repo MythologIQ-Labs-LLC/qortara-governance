@@ -1,7 +1,10 @@
-"""Public exceptions raised by Qortara Governance SDK.
+"""Public exceptions (and warning categories) raised by Qortara Governance SDK.
 
-`__all__` is the frozen Beta exception contract: consumers may catch any of
-these names and rely on the inheritance shape (all derive from QortaraError).
+`__all__` is the frozen Beta contract: consumers may catch/filter any of these
+names and rely on the inheritance shape. Every *error* name derives from
+QortaraError; every *warning* category (suffix ``Warning``) derives from the
+builtin ``UserWarning`` so it composes with the stdlib ``warnings`` machinery
+(it is NOT a QortaraError, because a warning is not a raised error by default).
 Additions are minor-version compatible; removals/renames are breaking.
 """
 
@@ -13,6 +16,7 @@ __all__ = [
     "QortaraApprovalRequired",
     "QortaraSidecarUnavailable",
     "QortaraProtocolMismatch",
+    "QortaraUngovernedDispatchWarning",
 ]
 
 
@@ -57,3 +61,20 @@ class QortaraProtocolMismatch(QortaraError):
         super().__init__(
             f"incompatible protocol version: expected {expected}, received {received}"
         )
+
+
+class QortaraUngovernedDispatchWarning(UserWarning):
+    """A patched tool dispatched with no AgentContext set, so policy did not run.
+
+    After ``init()``/``init_agt()`` the tool-dispatch methods are patched
+    process-wide, but a dispatch off any code path that never set an
+    ``AgentContext`` is enforced against nothing — it runs UNGOVERNED. The SDK
+    emits this warning rather than failing closed by default, because patched
+    methods are global and non-agent call paths legitimately run uncontextualized.
+
+    To make ungoverned dispatch fail closed, escalate this category to an error::
+
+        import warnings
+        from qortara_governance import QortaraUngovernedDispatchWarning
+        warnings.filterwarnings("error", category=QortaraUngovernedDispatchWarning)
+    """

@@ -9,7 +9,10 @@ from qortara_governance.client import SidecarClient
 from qortara_governance.context import get_context
 from qortara_governance.contract.state import CONTRACT_VERSION, AdapterState
 from qortara_governance.patches.action_builder import build_toolnode_action
-from qortara_governance.patches.tool_patches import enforce_decision
+from qortara_governance.patches.tool_patches import (
+    enforce_decision,
+    warn_missing_context,
+)
 
 _OriginalMethod = Callable[..., Any]
 
@@ -59,21 +62,31 @@ def _extract_tool_calls(state: Any) -> list[tuple[str, dict]]:
         return [("<unknown>", {})]
 
 
-def _decide_each(tool_calls: list[tuple[str, dict]], client: SidecarClient) -> None:
+def _decide_each(
+    tool_calls: list[tuple[str, dict]], client: SidecarClient, observe: bool = False
+) -> None:
     ctx = get_context()
     if ctx is None:
+        # Ungoverned dispatch (GAP-SEC-01): signal rather than silently skip.
+        # Shared helper with the BaseTool path so the two can't diverge.
+        first_name = tool_calls[0][0] if tool_calls else "<toolnode>"
+        warn_missing_context(first_name)
         return
     for name, args in tool_calls:
         # Thread args as tool_input so the in-process AGT decision source runs
         # argument-level checks (SQL/code/path); SidecarClient ignores it.
         # enforce_decision fails closed on any non-permit verdict (shared with
-        # the BaseTool path so the two can't diverge).
-        enforce_decision(client.decide(build_toolnode_action(name, ctx), args))
+        # the BaseTool path so the two can't diverge); observe -> log not raise.
+        enforce_decision(
+            client.decide(build_toolnode_action(name, ctx), args), observe=observe
+        )
 
 
-def _make_wrapper(original: _OriginalMethod, client: SidecarClient) -> _OriginalMethod:
+def _make_wrapper(
+    original: _OriginalMethod, client: SidecarClient, observe: bool = False
+) -> _OriginalMethod:
     def wrapper(self: object, input: Any, config: Any = None, **kwargs: Any) -> Any:
-        _decide_each(_extract_tool_calls(input), client)
+        _decide_each(_extract_tool_calls(input), client, observe)
         return original(self, input, config, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__
@@ -83,12 +96,12 @@ def _make_wrapper(original: _OriginalMethod, client: SidecarClient) -> _Original
 
 
 def _make_async_wrapper(
-    original: _OriginalMethod, client: SidecarClient
+    original: _OriginalMethod, client: SidecarClient, observe: bool = False
 ) -> _OriginalMethod:
     async def wrapper(
         self: object, input: Any, config: Any = None, **kwargs: Any
     ) -> Any:
-        _decide_each(_extract_tool_calls(input), client)
+        _decide_each(_extract_tool_calls(input), client, observe)
         return await original(self, input, config, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__
@@ -97,7 +110,9 @@ def _make_async_wrapper(
     return wrapper
 
 
-def apply(client: SidecarClient) -> dict[str, _OriginalMethod] | None:
+def apply(
+    client: SidecarClient, observe: bool = False
+) -> dict[str, _OriginalMethod] | None:
     """Install ToolNode.invoke + .ainvoke patches if langgraph present; else skip."""
     if not _langgraph_available():
         return None
@@ -113,8 +128,8 @@ def apply(client: SidecarClient) -> dict[str, _OriginalMethod] | None:
         "invoke": ToolNode.invoke,
         "ainvoke": ToolNode.ainvoke,
     }
-    ToolNode.invoke = _make_wrapper(ToolNode.invoke, client)  # type: ignore[method-assign]
-    ToolNode.ainvoke = _make_async_wrapper(ToolNode.ainvoke, client)  # type: ignore[method-assign]
+    ToolNode.invoke = _make_wrapper(ToolNode.invoke, client, observe)  # type: ignore[method-assign]
+    ToolNode.ainvoke = _make_async_wrapper(ToolNode.ainvoke, client, observe)  # type: ignore[method-assign]
     return originals
 
 
@@ -136,6 +151,9 @@ class LangGraphToolNodeAdapter:
     framework_module: str = "langgraph.prebuilt"
     contract_version: str = CONTRACT_VERSION
 
+    def __init__(self, observe: bool = False) -> None:
+        self._observe = observe
+
     def apply(self, client: SidecarClient) -> AdapterState:
         """Install the ToolNode patch and return an AdapterState.
 
@@ -143,7 +161,7 @@ class LangGraphToolNodeAdapter:
         expected to probe `framework_module` importability and skip the
         adapter before calling apply.
         """
-        originals = apply(client)
+        originals = apply(client, self._observe)
         if originals is None:
             raise ImportError(
                 "langgraph is not installed; LangGraphToolNodeAdapter.apply() "
