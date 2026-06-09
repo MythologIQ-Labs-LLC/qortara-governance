@@ -20,6 +20,7 @@ from qortara_governance.client import SidecarClient
 from qortara_governance.config import Config, PolicyMode, load_config
 from qortara_governance.context import AgentContext, get_context, set_context
 from qortara_governance.decorators import is_exempt, qortara_exempt
+from qortara_governance.evidence import decision_evidence, execution_evidence
 from qortara_governance.exceptions import (
     QortaraApprovalRequired,
     QortaraConfigurationError,
@@ -56,6 +57,8 @@ __all__ = [
     "QortaraSidecarUnavailable",
     "QortaraUngovernedDispatchWarning",
     "contract",
+    "decision_evidence",
+    "execution_evidence",
     "get_context",
     "init",
     "init_agt",

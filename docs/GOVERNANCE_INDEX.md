@@ -1,6 +1,6 @@
 # Governance Index
 
-**Last Reviewed**: 2026-06-09 (B4 threat model added)
+**Last Reviewed**: 2026-06-09 (Phase 20: compatibility matrix + evidence schema registered)
 
 A single authoritative map of every governance artifact in this project, organized
 into six freshness tiers with explicit drift contracts. A stale entry here is
@@ -34,7 +34,8 @@ Stable; changes are explicit doctrine events. Drift signal: rules contradict eac
 | Threat Model | `docs/security/THREAT-MODEL.md` |
 | ADR 0001 — AGT foundation vendoring | `docs/adr/0001-agt-foundation-vendoring.md` |
 | AGT Component Map | `docs/architecture/AGT-COMPONENT-MAP.md` |
-| Architecture Boundaries (public/hosted/Azure) | `docs/ARCHITECTURE-BOUNDARIES.md` (from origin/docs/public-hosted-boundary) |
+| Architecture Boundaries (public/hosted/Azure) | `docs/ARCHITECTURE-BOUNDARIES.md` |
+| Evidence Event Schema | `docs/evidence-schema.md` |
 
 ## Tier 3 — Active Initiative
 
@@ -58,7 +59,7 @@ Informational, slow-drift. Drift signal: factual claims diverge from current cod
 
 | Artifact | Path |
 |----------|------|
-| Beta launch roadmap | `docs/BETA-LAUNCH-ARCHITECTURAL-ROADMAP.md` (PR #11; not on this branch) |
+| Compatibility Matrix (CI-tested) | `docs/COMPATIBILITY.md` |
 | AxonFlow comparative research | `docs/research-brief-axonflow-2026-06-09.md` |
 
 ## Tier 6 — Archived

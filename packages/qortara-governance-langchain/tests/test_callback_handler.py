@@ -42,6 +42,11 @@ def test_chain_start_emits_observe_evidence_with_context() -> None:
     assert len(client.evidence) == 1
     rec = client.evidence[0]
     assert rec.decision.decision_kind == DecisionKind.OBSERVE
+    # Built via qortara_governance.evidence.decision_evidence (B5): observe is a
+    # terminal observed state.
+    from qortara_protocol import ExecutionResult
+
+    assert rec.execution_result == ExecutionResult.OBSERVED
     assert rec.tenant_id == "t"
 
 

@@ -186,13 +186,13 @@ Subprocess sidecar mode keeps all traffic on `localhost`; daemon mode depends on
 
 ## Compatibility
 
-| Dependency | Supported |
+| Dependency | Tested range |
 |---|---|
 | Python | 3.11, 3.12, 3.13 |
-| `langchain-core` | >= 0.3 |
-| `langgraph` | >= 0.2 (optional) |
+| `langchain-core` | `>= 0.3` — floor (`0.3.x`) **and** latest 1.x are exercised by CI |
+| `langgraph` | `>= 0.2` (optional) — floor (`0.2.x`) exercised by CI |
 
-Newer LangChain releases are tracked as they ship. File an issue if you hit a patching regression on a version not yet pinned.
+Every cell is CI-verified, not asserted: a `compat-floor` job runs the full suite against the lower bound on each PR, so the claim and the test move together. Full matrix + rationale: [`docs/COMPATIBILITY.md`](../../docs/COMPATIBILITY.md). File an issue if you hit a patching regression on a version not yet covered.
 
 ## Project status
 

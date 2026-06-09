@@ -982,3 +982,47 @@ SHA256(content_hash + previous_hash) = df90be1dc7e97d76c6d8d68135236b4fedd777675
 ---
 *Chain integrity: VALID*
 *Phase 19 on a fresh branch off merged main; new PR pending. Residuals unchanged + the post-Beta items now explicitly catalogued in BACKLOG (live-LLM create_agent test; remote-daemon §8.3 exceptions).*
+
+---
+
+### Entry #46: GATE TRIBUNAL — Phase 20 (compatibility matrix + evidence schema plan)
+
+**Timestamp**: 2026-06-09T21:30:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase20-compat-matrix-evidence-schema.md) = bbb9a3c3a1a18c5b72646f1a3062342acdaf84575e98ca69091ae4d4a5c840f5
+
+**Previous Hash**: 96aa29fc43c76fee4995aab39cc8a6bb0b7ad0e479b482b34d2b67dfc7360245
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = b9a42ddea0367fd374f6df5f8023d5a207b2128723d619274b89549c87e689cb
+
+**Decision**: Plan to fix N4/B3 (CI-verified compatibility matrix) + N5/B5 (evidence event schema, definitional) cleared all binding passes. **Research-grounded:** verified `langchain-core==0.3.0` resolves + `invoke`→`run`/`ainvoke`→`arun` holds there + the full suite passes on the `>=0.3,<0.4` + `langgraph<0.3` floor — so `>=0.3` is sound but CI-unverified (B3). N5 scoped definitional: a `decision_evidence`/`execution_evidence` separation that *refuses* to fabricate an execution result for non-terminal verdicts; **dispatch-path emission deferred** (hot-path behavior change + in-process `submit_evidence` no-op → opt-in design). No runtime dep change, no enforcement behavior change. Cleared for /qor-implement.
+
+---
+
+### Entry #47: SEAL — Phase 20 (compat matrix CI-enforced + evidence schema defined)
+
+**Timestamp**: 2026-06-09T21:50:00Z
+**Phase**: SEAL (substantiate, local — commit+push to a stacked PR)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(evidence + callback + __init__) = 3ec9793acf97b35a34e54fbdc83e19e46440615b0b143e4e07d67f3e0280cdd7
+
+**Previous Hash**: bbb9a3c3a1a18c5b72646f1a3062342acdaf84575e98ca69091ae4d4a5c840f5
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 870bbf9fded11a5bf636a9d0b56c5328183b56c5b56fa8f9630ac0c21fd101c0
+
+**Decision**: Reality == Promise. **N4/B3 DONE** — `docs/COMPATIBILITY.md` (tested matrix) + a `compat-floor` CI job running the full suite against `langchain-core>=0.3,<0.4` + `langgraph>=0.2,<0.3` on every PR; `>=0.3` is now CI-enforced (verified 153/2 pass on the floor locally). Package README Compatibility section + GOVERNANCE_INDEX updated (also corrected two now-stale index rows: ARCHITECTURE-BOUNDARIES is on main; dropped the closed-PR #11 roadmap row). **N5/B5 DEFINED** — `qortara_governance.evidence` (`decision_evidence` for terminal deny/exempt/observe, refusing non-terminal verdicts with ValueError; `execution_evidence` for post-run executed/errored/timed_out/approved) + `docs/evidence-schema.md`; `QortaraCallbackHandler` refactored to emit via the builder. **Deferred (design):** dispatch-path emission (behavior change + no-op in-process sink). 10 new tests; full suite **153 passed / 2 skipped** (latest AND 0.3 floor); ruff + mypy(0) clean. No runtime dep added; no enforcement behavior change.
+
+---
+*Chain integrity: VALID*
+*Phase 20 stacked on the Phase 19 branch (PR #14). B3 closed; B5 defined (emission deferred). Standing residuals + post-Beta items unchanged.*
