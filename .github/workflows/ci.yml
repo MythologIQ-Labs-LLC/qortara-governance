@@ -43,3 +43,31 @@ jobs:
 
       - name: Unit tests
         run: uv run pytest -q
+
+  # Verifies the lower bound of the documented compatibility matrix (B3): the
+  # full suite must pass against the langchain-core floor we claim (>=0.3), not
+  # only the latest resolved version. See docs/COMPATIBILITY.md.
+  compat-floor:
+    name: compat (langchain-core 0.3 floor)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/qortara-governance-langchain
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install package
+        run: uv sync --all-extras --python 3.11
+
+      - name: Unit tests against the langchain-core / langgraph floor
+        run: >
+          uv run --python 3.11
+          --with "langchain-core>=0.3,<0.4"
+          --with "langgraph>=0.2,<0.3"
+          pytest -q

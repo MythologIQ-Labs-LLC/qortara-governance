@@ -20,8 +20,10 @@ from qortara_governance.client import SidecarClient
 from qortara_governance.config import Config, PolicyMode, load_config
 from qortara_governance.context import AgentContext, get_context, set_context
 from qortara_governance.decorators import is_exempt, qortara_exempt
+from qortara_governance.evidence import decision_evidence, execution_evidence
 from qortara_governance.exceptions import (
     QortaraApprovalRequired,
+    QortaraConfigurationError,
     QortaraError,
     QortaraInsecureTransportWarning,
     QortaraPolicyDenied,
@@ -47,6 +49,7 @@ __all__ = [
     "PolicyMode",
     "QortaraApprovalRequired",
     "QortaraCallbackHandler",
+    "QortaraConfigurationError",
     "QortaraError",
     "QortaraInsecureTransportWarning",
     "QortaraPolicyDenied",
@@ -54,6 +57,8 @@ __all__ = [
     "QortaraSidecarUnavailable",
     "QortaraUngovernedDispatchWarning",
     "contract",
+    "decision_evidence",
+    "execution_evidence",
     "get_context",
     "init",
     "init_agt",
@@ -159,9 +164,14 @@ def init_agt(
     """
     global _FINGERPRINT, _AGT_ADAPTER
 
-    mode = (
-        policy_mode if isinstance(policy_mode, PolicyMode) else PolicyMode(policy_mode)
-    )
+    if isinstance(policy_mode, PolicyMode):
+        mode = policy_mode
+    elif policy_mode in {m.value for m in PolicyMode}:
+        mode = PolicyMode(policy_mode)
+    else:
+        raise QortaraConfigurationError(
+            f"Invalid policy_mode={policy_mode!r}; must be 'enforce' or 'observe'"
+        )
     new_fp = _InitFingerprint(
         "agt",
         (

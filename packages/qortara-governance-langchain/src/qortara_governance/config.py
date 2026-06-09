@@ -9,6 +9,8 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 
+from qortara_governance.exceptions import QortaraConfigurationError
+
 
 class PolicyMode(str, Enum):
     ENFORCE = "enforce"
@@ -29,7 +31,7 @@ def _env_policy_mode(raw: str | None) -> PolicyMode:
     if raw is None:
         return PolicyMode.ENFORCE
     if raw not in _VALID_MODES:
-        raise ValueError(
+        raise QortaraConfigurationError(
             f"Invalid QORTARA_POLICY_MODE={raw!r}; must be one of {_VALID_MODES}"
         )
     return PolicyMode(raw)
@@ -51,7 +53,7 @@ def load_config(
         mode = policy_mode
     else:
         if policy_mode not in _VALID_MODES:
-            raise ValueError(
+            raise QortaraConfigurationError(
                 f"Invalid policy_mode={policy_mode!r}; must be one of {_VALID_MODES}"
             )
         mode = PolicyMode(policy_mode)

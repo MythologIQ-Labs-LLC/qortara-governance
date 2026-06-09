@@ -16,9 +16,9 @@
 
 A Python monorepo of framework-specific adapters that intercept tool dispatch in AI agents and route each call through a local policy decision point before execution.
 
-Most agent governance hooks into callbacks or wraps tools. That's observation, not enforcement: the dispatch path that native tool-calling agents take can route around it. These adapters sit on the dispatch path itself — `BaseTool.invoke`, `ToolNode.invoke`, and equivalents in other frameworks — so policy decisions are synchronous, deterministic, and impossible to bypass.
+Most agent governance hooks into callbacks or wraps tools. That's observation, not enforcement: the dispatch path that native tool-calling agents take can route around it. These adapters sit on the dispatch funnel itself — `BaseTool.run`/`.arun` (which `invoke`/`ainvoke` and streaming all flow through), `ToolNode.invoke`/`.ainvoke`, and equivalents in other frameworks — so policy decisions are synchronous, deterministic, and bypass-resistant for any code using the framework's own dispatch. The boundary is cooperative-process: code that calls a tool's private implementation directly is out of scope (see [`docs/security/THREAT-MODEL.md`](docs/security/THREAT-MODEL.md) §5).
 
-**Built on Microsoft AGT.** qortara extends the [Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) (MIT) as a dependency — AGT supplies the policy engine, identity, sandboxing, and OWASP-Agentic compliance; qortara adds the bypass-proof dispatch-path hook (closing AGT #73) and an optional Azure upstream. It does not vendor or modify AGT. See [`docs/adr/0001`](docs/adr/0001-agt-foundation-vendoring.md).
+**Built on Microsoft AGT.** qortara extends the [Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) (MIT) as a dependency — AGT supplies the policy engine, identity, sandboxing, and OWASP-Agentic compliance; qortara adds the bypass-resistant dispatch-path hook (closing AGT #73) and an optional Azure upstream. It does not vendor or modify AGT. See [`docs/adr/0001`](docs/adr/0001-agt-foundation-vendoring.md).
 
 ## Public and hosted layers
 

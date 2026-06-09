@@ -8,21 +8,19 @@ EvidenceRecord with decision_kind=observe. Never raises from callback methods.
 from __future__ import annotations
 
 import time
-import uuid
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 
 from qortara_governance.context import get_context
 from qortara_governance.decision_client import DecisionClient
+from qortara_governance.evidence import decision_evidence
 from qortara_governance.otel import current_trace_context
 from qortara_protocol import (
     ActionDecision,
     ActionRequest,
     ActionType,
     DecisionKind,
-    EvidenceRecord,
-    ExecutionResult,
     Framework,
     RiskTier,
 )
@@ -72,15 +70,9 @@ class QortaraCallbackHandler(BaseCallbackHandler):
         ctx = get_context()
         if ctx is None:
             return
-        record = EvidenceRecord(
-            evidence_id=str(uuid.uuid4()),
-            tenant_id=ctx.tenant_id,
-            request=request,
-            decision=_observe_decision(),
-            execution_result=ExecutionResult.OBSERVED,
-            duration_ms=0,
-            ts=time.time(),
-        )
+        # OBSERVE is a terminal observed state (no enforcement, no tool run) —
+        # a decision-evidence event (see qortara_governance.evidence / B5).
+        record = decision_evidence(request, _observe_decision())
         try:
             self._client.submit_evidence([record])
         except Exception:  # noqa: BLE001 — callback never blocks
