@@ -34,13 +34,14 @@ It places a synchronous decision point on the dispatch path itself:
                              │ resolve tool
                              ▼
                   ┌──────────────────────┐
-                  │ BaseTool.invoke()    │  ← intercepted
+                  │  BaseTool.run()      │  ← intercepted
                   └──────────┬───────────┘
                              │
                              ▼
                   ┌──────────────────────┐
                   │  Policy evaluation   │
-                  │   (local sidecar)    │
+                  │ (in-process AGT, or  │
+                  │   remote sidecar)    │
                   └──────────┬───────────┘
             allow │ deny │ approval │ exempt
             ──────┼──────┼──────────┼──────
@@ -48,7 +49,7 @@ It places a synchronous decision point on the dispatch path itself:
             tool runs  exception  exception
 ```
 
-Every native tool dispatch passes through. Denied calls raise `QortaraPolicyDenied`; calls requiring human approval raise `QortaraApprovalRequired` with an approval URL; allowed calls execute normally. No tool rewriting, no callback re-registration, no agent code changes.
+The hook sits on `BaseTool.run`/`.arun` — the dispatch funnel that `invoke()` and `ainvoke()` both call — so `invoke`, `ainvoke`, `run`, and `arun` are all governed by one decision per dispatch. Denied calls raise `QortaraPolicyDenied`; calls requiring human approval raise `QortaraApprovalRequired` with an approval URL; allowed calls execute normally. No tool rewriting, no callback re-registration, no agent code changes. (The per-subclass private impls `_run`/`_arun` are not patchable at the `BaseTool` class level; calling them directly to skip dispatch is the cooperative-process boundary — see THREAT-MODEL §5.)
 
 ## Quickstart
 
@@ -97,6 +98,8 @@ Every intercepted call resolves to one of four states:
 | `deny` | Raise `QortaraPolicyDenied` with rationale + policy ID | Hard-stop policies (compliance, classification, locked-down tools) |
 | `require_approval` | Raise `QortaraApprovalRequired` with an approval URL | Higher-blast-radius calls that should pause for a human |
 | `exempt` | Execute without evaluation, but emit evidence | Pre-trusted tools (clocks, ID generators) |
+
+**Which plane emits which decision.** The in-process AGT engine (`init_agt`) is **binary — `allow` or `deny`** (default-deny, fail-closed); it does not emit `require_approval`. `require_approval` (and the transform kinds `downgrade`/`redact`/`sandbox`) come from the **remote sidecar / hosted decision plane** (`init`). The SDK routes whatever it receives: `require_approval` → `QortaraApprovalRequired`; any decision kind it does not implement (the transform kinds) → **deny-closed** with a rationale. Separately, `policy_mode="observe"` turns every would-be block into a logged-but-allowed shadow decision (see [Configuration](#configuration)).
 
 Exempt tools opt out of evaluation but still produce an audit record:
 

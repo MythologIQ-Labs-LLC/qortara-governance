@@ -1,8 +1,18 @@
-"""BaseTool.invoke / .ainvoke patches — deep-hook tool-dispatch interception.
+"""BaseTool.run / .arun patches — deep-hook tool-dispatch interception.
 
 Closes AGT issue #73: callback-level wrappers observe tool calls but don't
 reliably block native tool-calling dispatch. This module patches the actual
-invoke methods on BaseTool so every dispatch path flows through policy.
+dispatch funnel on BaseTool so every dispatch path flows through policy.
+
+`BaseTool.invoke()` calls `self.run(...)` and `ainvoke()` calls `self.arun(...)`
+(verified against langchain_core 1.4.2), so `run`/`arun` are the single funnel
+every public entry point passes through. Hooking there (rather than at
+invoke/ainvoke) also governs a *direct* `tool.run(...)` / `tool.arun(...)` call —
+the GAP-SEC-08 bypass that an invoke-only hook left open — with one decision per
+dispatch (no double-enforcement). `BaseTool` has no `__call__`. The per-subclass
+private impls `_run`/`_arun` cannot be patched at the BaseTool class level;
+calling them directly to skip dispatch is the cooperative-process boundary
+(THREAT-MODEL §5) — you already have in-process code execution.
 
 Exports:
     apply()              -> originals  (module-level; install patches)
@@ -115,12 +125,17 @@ def _decide_or_raise(
     enforce_decision(client.decide(request, tool_input), observe=observe)
 
 
+def _tool_input_of(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+    """Extract `tool_input` from a run/arun call (1st positional or keyword)."""
+    return args[0] if args else kwargs.get("tool_input")
+
+
 def _make_sync_wrapper(
     original: _OriginalMethod, client: SidecarClient, observe: bool = False
 ) -> _OriginalMethod:
-    def wrapper(self: object, input: Any, config: Any = None, **kwargs: Any) -> Any:
-        _decide_or_raise(self, input, client, observe)
-        return original(self, input, config, **kwargs)
+    def wrapper(self: object, *args: Any, **kwargs: Any) -> Any:
+        _decide_or_raise(self, _tool_input_of(args, kwargs), client, observe)
+        return original(self, *args, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__
     wrapper.__qortara_wrapped__ = True  # type: ignore[attr-defined]
@@ -131,11 +146,9 @@ def _make_sync_wrapper(
 def _make_async_wrapper(
     original: _OriginalMethod, client: SidecarClient, observe: bool = False
 ) -> _OriginalMethod:
-    async def wrapper(
-        self: object, input: Any, config: Any = None, **kwargs: Any
-    ) -> Any:
-        _decide_or_raise(self, input, client, observe)
-        return await original(self, input, config, **kwargs)
+    async def wrapper(self: object, *args: Any, **kwargs: Any) -> Any:
+        _decide_or_raise(self, _tool_input_of(args, kwargs), client, observe)
+        return await original(self, *args, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__
     wrapper.__qortara_wrapped__ = True  # type: ignore[attr-defined]
@@ -144,36 +157,40 @@ def _make_async_wrapper(
 
 
 def apply(client: SidecarClient, observe: bool = False) -> dict[str, _OriginalMethod]:
-    """Install BaseTool.invoke/ainvoke patches. Returns originals for unpatch."""
+    """Install BaseTool.run/arun patches (the dispatch funnel). Returns originals.
+
+    invoke()/ainvoke() reach policy *through* run/arun, and a direct run/arun call
+    is governed too (GAP-SEC-08). One decision per dispatch — no double-enforcement.
+    """
     from langchain_core.tools import BaseTool
 
-    if getattr(BaseTool.invoke, "__qortara_wrapped__", False):
+    if getattr(BaseTool.run, "__qortara_wrapped__", False):
         raise RuntimeError(
-            "BaseTool.invoke is already wrapped by Qortara - refusing to "
+            "BaseTool.run is already wrapped by Qortara - refusing to "
             "double-install. Call tool_patches.unpatch(originals) before "
             "re-installing."
         )
-    if getattr(BaseTool.ainvoke, "__qortara_wrapped__", False):
+    if getattr(BaseTool.arun, "__qortara_wrapped__", False):
         raise RuntimeError(
-            "BaseTool.ainvoke is already wrapped by Qortara - refusing to "
+            "BaseTool.arun is already wrapped by Qortara - refusing to "
             "double-install. Call tool_patches.unpatch(originals) before "
             "re-installing."
         )
     originals: dict[str, _OriginalMethod] = {
-        "invoke": BaseTool.invoke,
-        "ainvoke": BaseTool.ainvoke,
+        "run": BaseTool.run,
+        "arun": BaseTool.arun,
     }
-    BaseTool.invoke = _make_sync_wrapper(BaseTool.invoke, client, observe)  # type: ignore[method-assign]
-    BaseTool.ainvoke = _make_async_wrapper(BaseTool.ainvoke, client, observe)  # type: ignore[method-assign]
+    BaseTool.run = _make_sync_wrapper(BaseTool.run, client, observe)  # type: ignore[method-assign]
+    BaseTool.arun = _make_async_wrapper(BaseTool.arun, client, observe)  # type: ignore[method-assign]
     return originals
 
 
 def unpatch(originals: dict[str, _OriginalMethod]) -> None:
-    """Restore BaseTool.invoke/ainvoke to byte-identical originals."""
+    """Restore BaseTool.run/arun to byte-identical originals."""
     from langchain_core.tools import BaseTool
 
-    BaseTool.invoke = originals["invoke"]  # type: ignore[method-assign]
-    BaseTool.ainvoke = originals["ainvoke"]  # type: ignore[method-assign]
+    BaseTool.run = originals["run"]  # type: ignore[method-assign]
+    BaseTool.arun = originals["arun"]  # type: ignore[method-assign]
 
 
 class LangChainToolAdapter:

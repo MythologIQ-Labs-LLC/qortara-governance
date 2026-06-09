@@ -26,7 +26,7 @@ In scope: the LangChain/LangGraph framework adapter; the **default in-process de
 
 ## 3. Trust boundaries
 
-1. **Cooperative in-process boundary (default)** — the adapter patches `BaseTool.invoke` / `ToolNode.invoke` inside the *same* Python process as the agent, and (default path) the AGT `PolicyEngine` decision is also in-process. It assumes application code is cooperative, not hostile. In-process code that restores patched methods or calls a tool's underlying function directly is **outside** the boundary (see §5).
+1. **Cooperative in-process boundary (default)** — the adapter patches `BaseTool.run` / `.arun` (the dispatch funnel `invoke`/`ainvoke` call) and `ToolNode.invoke` / `.ainvoke` inside the *same* Python process as the agent, and (default path) the AGT `PolicyEngine` decision is also in-process. It assumes application code is cooperative, not hostile. In-process code that restores patched methods or calls a tool's underlying function directly (incl. the private `_run`/`_arun`) is **outside** the boundary (see §5).
 2. **Loopback sidecar boundary (optional remote-daemon mode only)** — when `init()` is used, SDK ↔ sidecar over `127.0.0.1` (or a local socket). Anything that can bind that port or read process arguments is a threat. Not present on the default in-process (`init_agt`) path.
 3. **Hosted boundary** — SDK/sidecar ↔ Qortara hosted decision service + managed Azure over the network. Optional; only present when hosted mode is configured. See [`../ARCHITECTURE-BOUNDARIES.md`](../ARCHITECTURE-BOUNDARIES.md).
 
@@ -57,7 +57,7 @@ STRIDE tags: **S**poofing, **T**ampering, **R**epudiation, **I**nfo-disclosure, 
 
 The adapter protects supported dispatch paths in a **cooperative** application process. It does **not** contain:
 
-- code that calls a tool's underlying function directly, outside LangChain/LangGraph dispatch;
+- code that calls a tool's underlying function directly, outside LangChain/LangGraph dispatch — including a tool's per-subclass private impl `BaseTool._run`/`._arun`, which cannot be governed at the `BaseTool` class level (the adapter hooks the public `run`/`arun` funnel that `invoke`/`ainvoke` pass through);
 - malicious in-process code that restores or replaces patched methods;
 - unsupported framework internals or dynamically imported framework versions outside the compatibility matrix;
 - subprocesses or remote workers that never initialized the SDK;

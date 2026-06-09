@@ -15,7 +15,7 @@ def test_double_install_raises_runtime_error(fake_client: Any) -> None:
     """Second apply() without unpatch must raise RuntimeError."""
     originals = tool_apply(fake_client)
     try:
-        assert getattr(BaseTool.invoke, "__qortara_wrapped__", False) is True
+        assert getattr(BaseTool.run, "__qortara_wrapped__", False) is True
         with pytest.raises(RuntimeError, match="already wrapped"):
             tool_apply(fake_client)
     finally:
@@ -31,11 +31,11 @@ def test_unpatch_after_failed_double_install_restores_cleanly(
         tool_apply(fake_client)
 
     tool_unpatch(originals)
-    assert getattr(BaseTool.invoke, "__qortara_wrapped__", False) is False
-    assert getattr(BaseTool.ainvoke, "__qortara_wrapped__", False) is False
+    assert getattr(BaseTool.run, "__qortara_wrapped__", False) is False
+    assert getattr(BaseTool.arun, "__qortara_wrapped__", False) is False
     # And a fresh install should now succeed
     originals2 = tool_apply(fake_client)
     try:
-        assert getattr(BaseTool.invoke, "__qortara_wrapped__", False) is True
+        assert getattr(BaseTool.run, "__qortara_wrapped__", False) is True
     finally:
         tool_unpatch(originals2)

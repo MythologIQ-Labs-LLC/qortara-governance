@@ -772,5 +772,45 @@ SHA256(content_hash + previous_hash) = 9d31e6ad33825aff00a87aa0d0fa49a8a1be484d4
 **Decision**: Reality == Promise. **GAP-SEC-01 RESOLVED** — `warn_missing_context()` emits `QortaraUngovernedDispatchWarning` on no-context dispatch on both BaseTool and ToolNode paths (shared helper, can't diverge); exempt tools don't warn; escalating the category to an error via the stdlib `warnings` filter makes ungoverned dispatch fail closed. **GAP-CFG-01 RESOLVED** — `policy_mode=observe` is now a real shadow/dry-run mode (evaluate + log would-be block at WARNING, never raise), threaded `init`/`init_agt`→`apply_patches(observe=)`→adapters→`enforce_decision(observe=)`; `init_agt` gained `policy_mode=`; dead `offline_policy_path`/`QORTARA_OFFLINE_POLICY` removed (air-gapped path is `init_agt`, ADR-0001); README config table corrected (was advertising both unimplemented features). 13 new behavioral/adversarial tests (observe-never-raises-but-logs, enforce-still-raises regression, no-context-warns, filter→error fail-closed, exempt-no-warn, init_agt observe). Full suite **110 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-01/CFG-01 marked RESOLVED.
 
 ---
+
+### Entry #36: GATE TRIBUNAL — Phase 15 (SEC-08 + CAP-01 plan)
+
+**Timestamp**: 2026-06-09T16:10:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase15-sec08-cap01-chokepoint-approval.md) = a901c288ac38ae72ef3a8aebac6729b267ad51f15be27019d222bb800526cdbe
+
+**Previous Hash**: bdda8f368309d4444b0e03b3d49c16fed27af1cd03ec0403779adea3339e96fe
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 50dfd0759096ad0aa1b834215da38d84dae256440500faa9156fbc65d4c9724c
+
+**Decision**: Plan to close deferred HIGH GAP-SEC-08 (relocate the enforcement chokepoint from `invoke`/`ainvoke` to the `run`/`arun` funnel that both call — verified against langchain_core 1.4.2; `BaseTool` has no `__call__`) + GAP-CAP-01 (honest decision-model docs: AGT in-process is binary allow/deny; `require_approval`/transform kinds are sidecar/hosted plane) cleared all binding passes. Security: `run`/`arun` is a strict superset funnel → strictly more coverage, one decision per dispatch (no double-enforcement); `_run`/`_arun` private impls documented as the cooperative-process boundary (THREAT-MODEL §5). Razor: deeper hook, no new surface; CAP-01 docs+tests only (no speculative AGT extension, ADR-0001). Cleared for /qor-implement.
+
+---
+
+### Entry #37: SEAL — Phase 15 (SEC-08 run/arun chokepoint + CAP-01 honest decision model)
+
+**Timestamp**: 2026-06-09T16:25:00Z
+**Phase**: SEAL (substantiate, local — commit+push to PR #13)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(tool_patches.py) = b3d0b661f85bd9e7c6495bb7afba551f1d2cae0548ff77db831379c1ccfd87d2
+
+**Previous Hash**: a901c288ac38ae72ef3a8aebac6729b267ad51f15be27019d222bb800526cdbe
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 2919d2606fd8a1b32f50fd3f7d5f9e97a165a4bbd0c5581825cbb8869222c9e4
+
+**Decision**: Reality == Promise. **GAP-SEC-08 RESOLVED** — `tool_patches` now patches `BaseTool.run`/`.arun` (the funnel `invoke`/`ainvoke` call) with signature-agnostic pass-through wrappers; a direct `tool.run(...)`/`tool.arun(...)` is now governed (was the bypass), `invoke`/`ainvoke` still governed *through* run (one decision, no double-enforcement); double-install guard + byte-identical unpatch track run/arun. `_run`/`_arun` documented as the cooperative-process boundary (THREAT-MODEL §5, README). **GAP-CAP-01 RESOLVED (docs+boundary)** — README decision model now states the in-process AGT engine is binary allow/deny while `require_approval`/`downgrade`/`redact`/`sandbox` are sidecar/hosted-plane kinds the SDK routes (require_approval→QortaraApprovalRequired; unimplemented transform kinds→deny-closed); diagram corrected (`run()`, in-process/sidecar). 6 new conformance tests (direct run/arun governed, invoke-still-governed regression, run/arun-wrapped + invoke-untouched, AGT-binary boundary, sidecar require_approval→approval); 3 patch-internals tests re-pointed invoke→run. Full suite **116 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-08/CAP-01 marked RESOLVED.
+
+---
 *Chain integrity: VALID*
-*Red-team CRITICAL set + deferred HIGH SEC-01/CFG-01 closed. Remaining deferred: CAP-01, SEC-07, SEC-08, CI-01/02, DOC-01(rest), require_compatible_protocol wiring, MED/LOW.*
+*Red-team CRITICAL set + deferred HIGH SEC-01/CFG-01/SEC-08/CAP-01 closed. Remaining deferred: SEC-07 (unpatch/exempt hardening), CI-01/02 (CI gate hardening), DOC-01(rest), require_compatible_protocol wiring, MED/LOW.*

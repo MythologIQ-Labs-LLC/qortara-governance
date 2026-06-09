@@ -20,10 +20,10 @@ Four adversarial subagents (security, code-correctness, test-adequacy, config/su
 | GAP-SEC-02 non-DENY verdicts allow | CRITICAL | **CONFIRMED** | `tool_patches.py:39-50` raises only on DENY/REQUIRE_APPROVAL; DOWNGRADE/REDACT/SANDBOX/OBSERVE/garbage fall through to run. |
 | GAP-SEC-03 malformed 2xx fail-open | CRITICAL | **CONFIRMED** | `client.py:103-108` catches only `(RequestError, HTTPStatusError)`; `ActionDecision.model_validate` raises `ValidationError` which escapes + breaker not tripped. |
 | GAP-SEC-04 `check_violation` uncaught | HIGH→CRIT | **CONFIRMED** | `agt_engine.py:58-62` has no try/except around the engine call; a raising check is not fail-closed. |
-| GAP-CAP-01 REQUIRE_APPROVAL dead on AGT path | HIGH | CONFIRMED | AGT returns only None/str; README documents a 4-state model. *(deferred — doc/capability)* |
+| GAP-CAP-01 REQUIRE_APPROVAL dead on AGT path | HIGH | **RESOLVED (Phase 15, docs+boundary)** | AGT path is binary by design (ADR-0001 — no speculative extension); README decision model now states AGT=allow/deny while `require_approval`/transform kinds are sidecar/hosted-plane kinds the SDK routes correctly when received. Boundary test asserts AGT never emits `require_approval`; end-to-end test proves a scripted `require_approval` → `QortaraApprovalRequired`. |
 | GAP-SEC-01 no-context = silent fail-open | HIGH | **RESOLVED (Phase 14)** | Both paths now call `warn_missing_context()` → `QortaraUngovernedDispatchWarning` instead of a silent early-return; escalating the category to an error (stdlib `warnings` filter) makes ungoverned dispatch fail closed. Exempt tools don't warn. |
 | GAP-SEC-07 unpatch/`__qortara_original__` + settable `qortara_exempt` | HIGH | CONFIRMED | public bypass surface. *(deferred — defense-in-depth)* |
-| GAP-SEC-08 `.run`/`._run`/`__call__` ungoverned | HIGH | CONFIRMED | only `invoke`/`ainvoke` patched. *(deferred — scope/design)* |
+| GAP-SEC-08 `.run`/`._run`/`__call__` ungoverned | HIGH | **RESOLVED (Phase 15)** | Chokepoint moved to `BaseTool.run`/`.arun` — the funnel `invoke`/`ainvoke` call (verified langchain_core 1.4.2) — so a direct `tool.run(...)`/`.arun(...)` is now governed. `__call__` does not exist on `BaseTool`. `_run`/`_arun` (per-subclass private impls) are unpatchable at the class level → documented cooperative-process boundary (THREAT-MODEL §5). |
 | GAP-CFG-01 dead config (policy_mode/offline_policy/require_compatible_protocol) | HIGH | **RESOLVED (Phase 14)** | `policy_mode=observe` now real (shadow/dry-run: evaluate + log would-be block, never raise; threaded `init`/`init_agt`→`apply_patches`→adapters→`enforce_decision`). `offline_policy_path`/`QORTARA_OFFLINE_POLICY` **removed** (dead; air-gapped path is `init_agt` per ADR-0001). README config table corrected. *`require_compatible_protocol` wiring still deferred — `health()` exposes no peer version; documented limitation, not dead config.* |
 | GAP-CI-01 security.yml gates `\|\| true` | HIGH | CONFIRMED (known) | pip-audit/bandit/SBOM non-blocking. *(deferred — CI hardening, by design first-cut)* |
 | GAP-CI-02 gitleaks binary no checksum | MED | CONFIRMED | `security.yml` curl|tar|sudo mv. *(deferred)* |
@@ -45,7 +45,7 @@ Confirmed CRITICAL bypass/fail-open set: **GAP-SEC-02, -03, -04, -05, -06** — 
 
 ## Deferred (tracked follow-up — operator-sequenced)
 
-GAP-CAP-01 (approval on AGT path / doc), GAP-SEC-07 (unpatch/exempt hardening), GAP-SEC-08 (alternate entry points), GAP-CI-01/02 (CI gate hardening), GAP-DOC-01 (rest) + MED/LOW hardening. (GAP-SEC-01 + GAP-CFG-01 resolved in Phase 14; `require_compatible_protocol` init-wiring remains deferred pending a sidecar health-version field.)
+GAP-SEC-07 (unpatch/exempt hardening), GAP-CI-01/02 (CI gate hardening), GAP-DOC-01 (rest) + MED/LOW hardening. (GAP-SEC-01 + GAP-CFG-01 resolved in Phase 14; GAP-SEC-08 + GAP-CAP-01 resolved in Phase 15; `require_compatible_protocol` init-wiring remains deferred pending a sidecar health-version field.)
 
 ## Meta-finding (process)
 
