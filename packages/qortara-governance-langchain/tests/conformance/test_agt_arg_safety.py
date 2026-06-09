@@ -98,3 +98,36 @@ def test_sidecar_client_does_not_inline_tool_input() -> None:
     )
     c.decide(_req(), {"query": "SECRET-DROP-VALUE"})
     assert "SECRET-DROP-VALUE" not in seen["body"]  # args not inlined
+
+
+# --- GAP-SEC-05: arg-safety boundary (AGT only arg-checks recognized names) ---
+
+
+def _ctx() -> AgentContext:
+    return AgentContext(tenant_id="t", agent_id="agent-x", session_id="s")
+
+
+def test_unmapped_dangerous_tool_is_not_argchecked() -> None:
+    # `sql_db_query` is NOT a name AGT recognizes for arg-checks, so a destructive
+    # query is ALLOWED (role+tool allow-list only). This documents the boundary
+    # explicitly so the limitation is not hidden.
+    client = AgtDecisionClient(AgtPolicyAdapter().allow("agent-x", ["sql_db_query"]))
+    req = build_tool_action("sql_db_query", {}, _ctx())
+    assert (
+        client.decide(req, {"query": "DROP TABLE users"}).decision_kind
+        == DecisionKind.ALLOW
+    )
+
+
+def test_capability_alias_enables_argcheck() -> None:
+    # Mapping the tool onto AGT's recognized `database_query` capability routes
+    # the destructive query into AGT's arg-check -> DENY.
+    adapter = AgtPolicyAdapter(
+        capability_aliases={"sql_db_query": "database_query"}
+    ).allow("agent-x", ["sql_db_query"])
+    client = AgtDecisionClient(adapter)
+    req = build_tool_action("sql_db_query", {}, _ctx())
+    assert (
+        client.decide(req, {"query": "DROP TABLE users"}).decision_kind
+        == DecisionKind.DENY
+    )

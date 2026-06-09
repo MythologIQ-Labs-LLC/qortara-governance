@@ -1,4 +1,4 @@
-"""LangGraph ToolNode.invoke patches — optional (silent skip if langgraph absent)."""
+"""LangGraph ToolNode.invoke / .ainvoke patches — optional (silent skip if absent)."""
 
 from __future__ import annotations
 
@@ -8,9 +8,8 @@ from typing import Any, Callable
 from qortara_governance.client import SidecarClient
 from qortara_governance.context import get_context
 from qortara_governance.contract.state import CONTRACT_VERSION, AdapterState
-from qortara_governance.exceptions import QortaraApprovalRequired, QortaraPolicyDenied
 from qortara_governance.patches.action_builder import build_toolnode_action
-from qortara_protocol import DecisionKind
+from qortara_governance.patches.tool_patches import enforce_decision
 
 _OriginalMethod = Callable[..., Any]
 
@@ -67,19 +66,9 @@ def _decide_each(tool_calls: list[tuple[str, dict]], client: SidecarClient) -> N
     for name, args in tool_calls:
         # Thread args as tool_input so the in-process AGT decision source runs
         # argument-level checks (SQL/code/path); SidecarClient ignores it.
-        decision = client.decide(build_toolnode_action(name, ctx), args)
-        if decision.decision_kind == DecisionKind.DENY:
-            raise QortaraPolicyDenied(
-                rationale=decision.rationale,
-                policy_pack_id=decision.policy_pack_id,
-                policy_version_sha256=decision.policy_version_sha256,
-            )
-        if decision.decision_kind == DecisionKind.REQUIRE_APPROVAL:
-            raise QortaraApprovalRequired(
-                rationale=decision.rationale,
-                approval_url=decision.approval_url,
-                policy_pack_id=decision.policy_pack_id,
-            )
+        # enforce_decision fails closed on any non-permit verdict (shared with
+        # the BaseTool path so the two can't diverge).
+        enforce_decision(client.decide(build_toolnode_action(name, ctx), args))
 
 
 def _make_wrapper(original: _OriginalMethod, client: SidecarClient) -> _OriginalMethod:
@@ -93,30 +82,51 @@ def _make_wrapper(original: _OriginalMethod, client: SidecarClient) -> _Original
     return wrapper
 
 
+def _make_async_wrapper(
+    original: _OriginalMethod, client: SidecarClient
+) -> _OriginalMethod:
+    async def wrapper(
+        self: object, input: Any, config: Any = None, **kwargs: Any
+    ) -> Any:
+        _decide_each(_extract_tool_calls(input), client)
+        return await original(self, input, config, **kwargs)
+
+    wrapper.__qualname__ = original.__qualname__
+    wrapper.__qortara_wrapped__ = True  # type: ignore[attr-defined]
+    wrapper.__qortara_original__ = original  # type: ignore[attr-defined]
+    return wrapper
+
+
 def apply(client: SidecarClient) -> dict[str, _OriginalMethod] | None:
-    """Install ToolNode.invoke patch if langgraph available; else silent skip."""
+    """Install ToolNode.invoke + .ainvoke patches if langgraph present; else skip."""
     if not _langgraph_available():
         return None
     from langgraph.prebuilt import ToolNode
 
-    if getattr(ToolNode.invoke, "__qortara_wrapped__", False):
-        raise RuntimeError(
-            "ToolNode.invoke is already wrapped by Qortara - refusing to "
-            "double-install. Call langgraph_patches.unpatch(originals) before "
-            "re-installing."
-        )
-    originals: dict[str, _OriginalMethod] = {"invoke": ToolNode.invoke}
+    for method in ("invoke", "ainvoke"):
+        if getattr(getattr(ToolNode, method), "__qortara_wrapped__", False):
+            raise RuntimeError(
+                f"ToolNode.{method} is already wrapped by Qortara - refusing to "
+                "double-install. Call langgraph_patches.unpatch(originals) first."
+            )
+    originals: dict[str, _OriginalMethod] = {
+        "invoke": ToolNode.invoke,
+        "ainvoke": ToolNode.ainvoke,
+    }
     ToolNode.invoke = _make_wrapper(ToolNode.invoke, client)  # type: ignore[method-assign]
+    ToolNode.ainvoke = _make_async_wrapper(ToolNode.ainvoke, client)  # type: ignore[method-assign]
     return originals
 
 
 def unpatch(originals: dict[str, _OriginalMethod] | None) -> None:
-    """Restore ToolNode.invoke. No-op if originals is None (langgraph absent)."""
+    """Restore ToolNode.invoke/.ainvoke. No-op if originals is None (langgraph absent)."""
     if originals is None:
         return
     from langgraph.prebuilt import ToolNode
 
     ToolNode.invoke = originals["invoke"]  # type: ignore[method-assign]
+    if "ainvoke" in originals:
+        ToolNode.ainvoke = originals["ainvoke"]  # type: ignore[method-assign]
 
 
 class LangGraphToolNodeAdapter:

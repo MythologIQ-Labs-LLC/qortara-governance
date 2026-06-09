@@ -121,16 +121,25 @@ def init(
     _FINGERPRINT = new_fp
 
 
-def init_agt(agent_id: str, allowed_tools: list[str]) -> AgtPolicyAdapter:
+def init_agt(
+    agent_id: str,
+    allowed_tools: list[str],
+    *,
+    capability_aliases: dict[str, str] | None = None,
+) -> AgtPolicyAdapter:
     """Initialize in-process enforcement backed by Microsoft AGT (ADR-0001).
 
     Installs the dispatch patch with an AGT-backed decision source — no sidecar
     needed locally. `agent_id` is the AGT policy role; `allowed_tools` is its
-    allow-list (default-deny for everything else). Returns the adapter so the
-    caller can grant further roles. Set an AgentContext(agent_id=...) so the
-    patch enforces on this agent's dispatches.
+    allow-list (default-deny for everything else). `capability_aliases` maps your
+    tool names onto AGT-recognized capability names (e.g. {"sql_db_query":
+    "database_query"}) so AGT's argument-level checks reach them. Returns the
+    adapter so the caller can grant further roles. Set an AgentContext(agent_id=...)
+    so the patch enforces on this agent's dispatches.
     """
-    adapter = AgtPolicyAdapter().allow(agent_id, allowed_tools)
+    adapter = AgtPolicyAdapter(capability_aliases=capability_aliases).allow(
+        agent_id, allowed_tools
+    )
     # AgtDecisionClient is a structural drop-in for SidecarClient (same .decide
     # contract); apply_patches is nominally typed to SidecarClient.
     apply_patches(AgtDecisionClient(adapter))  # type: ignore[arg-type]

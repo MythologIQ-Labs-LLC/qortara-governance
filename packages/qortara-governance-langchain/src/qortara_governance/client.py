@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass
 
 import httpx
+from pydantic import ValidationError
 
 from qortara_governance.exceptions import QortaraSidecarUnavailable
 from qortara_governance.protocol_version import PROTOCOL_VERSION
@@ -101,11 +102,17 @@ class SidecarClient:
                 self._record_failure()
                 return _deny_all(f"sidecar 5xx: {resp.status_code}")
             resp.raise_for_status()
+            decision = ActionDecision.model_validate(resp.json())
             self._record_success()
-            return ActionDecision.model_validate(resp.json())
+            return decision
         except (httpx.RequestError, httpx.HTTPStatusError):
             self._record_failure()
             return _deny_all("sidecar unreachable — deny-closed")
+        except (ValidationError, ValueError):
+            # Malformed 2xx body (bad JSON / schema). Fail closed and count it
+            # toward the breaker — a misbehaving sidecar must not allow.
+            self._record_failure()
+            return _deny_all("sidecar returned a malformed decision — deny-closed")
 
     def submit_evidence(self, records: list[EvidenceRecord]) -> None:
         """POST /v0.1/evidence — best-effort; failures are logged but not raised."""

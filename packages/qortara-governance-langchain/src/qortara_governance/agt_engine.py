@@ -24,19 +24,48 @@ from qortara_governance.agt import agt_version
 
 
 class AgtPolicyAdapter:
-    """Thin wrapper over AGT's in-process PolicyEngine (default-deny allow-list)."""
+    """Thin wrapper over AGT's in-process PolicyEngine (default-deny allow-list).
 
-    def __init__(self, engine: PolicyEngine | None = None) -> None:
+    AGT's argument-level checks (SQL/code/path/endpoint) only fire for tool names
+    AGT recognizes (e.g. `run_command`, `database_query`, `write_file`). For other
+    tool names, enforcement is role + tool allow-listing only. `capability_aliases`
+    maps your tool names onto AGT-recognized capability names so arg-checks reach
+    them too (e.g. `{"sql_db_query": "database_query"}`).
+    """
+
+    def __init__(
+        self,
+        engine: PolicyEngine | None = None,
+        capability_aliases: dict[str, str] | None = None,
+    ) -> None:
         self._engine = engine or PolicyEngine()
+        self._aliases = dict(capability_aliases or {})
 
     def allow(self, role: str, tools: list[str]) -> "AgtPolicyAdapter":
-        """Grant `role` permission to use `tools` (AGT allow-list)."""
-        self._engine.add_constraint(role, tools)
+        """Grant `role` permission to use `tools` (AGT allow-list).
+
+        Aliased capability names are also allow-listed so the alias arg-check pass
+        in `check()` passes the role gate and reaches AGT's argument inspection.
+        """
+        constraint = list(tools)
+        constraint += [self._aliases[t] for t in tools if t in self._aliases]
+        self._engine.add_constraint(role, constraint)
         return self
 
     def check(self, role: str, tool_name: str, args: dict[str, Any]) -> str | None:
-        """Return None if allowed, else AGT's violation string."""
-        return self._engine.check_violation(role, tool_name, args)
+        """Return None if allowed, else AGT's violation string.
+
+        Runs the allow-list + (incidental) arg-check under the real tool name,
+        then — if the tool is aliased — a second arg-check pass under the
+        AGT-recognized capability name so argument inspection actually fires.
+        """
+        violation = self._engine.check_violation(role, tool_name, args)
+        if violation is not None:
+            return violation
+        alias = self._aliases.get(tool_name)
+        if alias is not None:
+            return self._engine.check_violation(role, alias, args)
+        return None
 
 
 class AgtDecisionClient:
@@ -56,7 +85,16 @@ class AgtDecisionClient:
         is a dict; otherwise no args are supplied.
         """
         args: dict[str, Any] = tool_input if isinstance(tool_input, dict) else {}
-        violation = self._adapter.check(request.agent_id, request.target_resource, args)
+        try:
+            violation = self._adapter.check(
+                request.agent_id, request.target_resource, args
+            )
+        except Exception as exc:
+            # Fail closed: any error evaluating policy denies, never allows.
+            return self._decision(
+                DecisionKind.DENY,
+                f"AGT policy evaluation error (fail-closed): {type(exc).__name__}",
+            )
         if violation is None:
             return self._decision(DecisionKind.ALLOW, "allowed by AGT policy")
         return self._decision(DecisionKind.DENY, violation)

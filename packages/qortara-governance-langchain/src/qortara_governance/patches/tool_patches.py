@@ -21,13 +21,43 @@ from qortara_governance.contract.state import CONTRACT_VERSION, AdapterState
 from qortara_governance.decorators import is_exempt
 from qortara_governance.exceptions import QortaraApprovalRequired, QortaraPolicyDenied
 from qortara_governance.patches.action_builder import build_tool_action
-from qortara_protocol import DecisionKind
+from qortara_protocol import ActionDecision, DecisionKind
 
 _OriginalMethod = Callable[..., Any]
 
+# Kinds that permit execution. Everything else is treated as blocking so the
+# default is fail-closed: a decision the SDK does not explicitly understand
+# (DOWNGRADE/REDACT/SANDBOX/unknown — transform semantics are not implemented)
+# must NOT let the tool run. Shared by BaseTool + LangGraph patches so the two
+# dispatch paths can never diverge.
+_PERMIT_KINDS = (DecisionKind.ALLOW, DecisionKind.EXEMPT, DecisionKind.OBSERVE)
+
+
+def enforce_decision(decision: ActionDecision) -> None:
+    """Raise on any non-permit decision (fail-closed). Permit = ALLOW/EXEMPT/OBSERVE."""
+    kind = decision.decision_kind
+    if kind in _PERMIT_KINDS:
+        return
+    if kind == DecisionKind.REQUIRE_APPROVAL:
+        raise QortaraApprovalRequired(
+            rationale=decision.rationale,
+            approval_url=decision.approval_url,
+            policy_pack_id=decision.policy_pack_id,
+        )
+    rationale = (
+        decision.rationale
+        if kind == DecisionKind.DENY
+        else f"unsupported decision_kind '{kind.value}' — fail-closed"
+    )
+    raise QortaraPolicyDenied(
+        rationale=rationale,
+        policy_pack_id=decision.policy_pack_id,
+        policy_version_sha256=decision.policy_version_sha256,
+    )
+
 
 def _decide_or_raise(tool: object, tool_input: Any, client: SidecarClient) -> None:
-    """Request a decision; raise on deny/require_approval; return on allow/exempt."""
+    """Request a decision; permit only ALLOW/EXEMPT/OBSERVE, else fail closed."""
     if is_exempt(tool):
         return
     ctx = get_context()
@@ -35,19 +65,7 @@ def _decide_or_raise(tool: object, tool_input: Any, client: SidecarClient) -> No
         return
     tool_name = getattr(tool, "name", type(tool).__name__)
     request = build_tool_action(tool_name, tool_input, ctx)
-    decision = client.decide(request, tool_input)
-    if decision.decision_kind == DecisionKind.DENY:
-        raise QortaraPolicyDenied(
-            rationale=decision.rationale,
-            policy_pack_id=decision.policy_pack_id,
-            policy_version_sha256=decision.policy_version_sha256,
-        )
-    if decision.decision_kind == DecisionKind.REQUIRE_APPROVAL:
-        raise QortaraApprovalRequired(
-            rationale=decision.rationale,
-            approval_url=decision.approval_url,
-            policy_pack_id=decision.policy_pack_id,
-        )
+    enforce_decision(client.decide(request, tool_input))
 
 
 def _make_sync_wrapper(

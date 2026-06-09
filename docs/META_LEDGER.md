@@ -688,3 +688,49 @@ SHA256(content_hash + previous_hash) = 72f74bbce21d122ccd7504e547cc1b0eb9960764e
 ---
 *Chain integrity: VALID*
 *PR #13 review findings P1/P2a/P2b resolved. Open: P2c roadmap update on PR #11 (operator-sequenced); harden report-only CI gates.*
+
+> **Deep-audit red team (4 parallel subagents):** brief at `docs/research-brief-deep-audit-redteam-2026-06-09.md`; ~6 confirmed CRITICAL, 1 CRITICAL refuted. CRITICAL set remediated in Phase 13 below.
+
+---
+
+### Entry #32: GATE TRIBUNAL — Phase 13 (red-team CRITICAL remediation)
+
+**Timestamp**: 2026-06-09T14:02:00Z
+**Phase**: GATE
+**Author**: Judge (deep-audit bundle)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(AUDIT_REPORT-phase13.md) = 095086c61b6735ae408c93f4374c05293668fa8a0ab8db9cc854f785da2b9002
+
+**Previous Hash**: 8af7f37c505a6efe86aff46cf6cc48faf08aef40d275657768ee9b5fabdd7cb2
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 61d657ec1eb2eb65ced68dd43bd9a444e46af581c8f16865c68de6f8e733302d
+
+**Decision**: Plan to close GAP-SEC-02/03/04/05/06 (non-allow verdicts fail-closed; malformed-2xx deny; engine-exception deny; ToolNode.ainvoke patched; arg-safety honest + opt-in capability_aliases) cleared all binding passes. Fail-closed-ward; AGT internals untouched. Cleared for /qor-implement.
+
+---
+
+### Entry #33: SEAL — Phase 13 (red-team CRITICAL remediation)
+
+**Timestamp**: 2026-06-09T14:20:00Z
+**Phase**: SEAL (substantiate, local — commit+push to PR #13)
+**Author**: Specialist (deep-audit remediate bundle)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(tool_patches + langgraph_patches + client + agt_engine + __init__) = f6b5219b10dbeeb6161d6ef59c7ee38881128fe5424c7b41277998af6f7f3ca3
+
+**Previous Hash**: 095086c61b6735ae408c93f4374c05293668fa8a0ab8db9cc854f785da2b9002
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 3fa335eb22aa411f1dc6a3cb25894a2a73f31c9eef4eb7cfcc7b8fd55640a17c
+
+**Decision**: Reality == Promise. Confirmed CRITICAL set RESOLVED: **SEC-02** shared `enforce_decision` permits only ALLOW/EXEMPT/OBSERVE (DOWNGRADE/REDACT/SANDBOX/unknown → deny-closed), used by both BaseTool + ToolNode paths; **SEC-03** `client.decide` catches `ValidationError`/`ValueError` → deny + breaker; **SEC-04** `AgtDecisionClient.decide` try/except → fail-closed DENY; **SEC-06** `ToolNode.ainvoke` patched + restored; **SEC-05** honest docstring + opt-in `capability_aliases` (+ `init_agt` passthrough) + boundary test. 18 adversarial tests; full suite **97 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-02/03/04/05/06 marked RESOLVED. Deferred items (GAP-CAP-01, SEC-01/07/08, CFG-01, CI-01/02, DOC-01, MED/LOW) tracked in the brief.
+
+---
+*Chain integrity: VALID*
+*Red-team CRITICAL set closed. Deferred HIGH/MED/doc/CI items remain (operator-sequenced).*
