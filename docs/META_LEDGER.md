@@ -812,5 +812,45 @@ SHA256(content_hash + previous_hash) = 2919d2606fd8a1b32f50fd3f7d5f9e97a165a4bbd
 **Decision**: Reality == Promise. **GAP-SEC-08 RESOLVED** — `tool_patches` now patches `BaseTool.run`/`.arun` (the funnel `invoke`/`ainvoke` call) with signature-agnostic pass-through wrappers; a direct `tool.run(...)`/`tool.arun(...)` is now governed (was the bypass), `invoke`/`ainvoke` still governed *through* run (one decision, no double-enforcement); double-install guard + byte-identical unpatch track run/arun. `_run`/`_arun` documented as the cooperative-process boundary (THREAT-MODEL §5, README). **GAP-CAP-01 RESOLVED (docs+boundary)** — README decision model now states the in-process AGT engine is binary allow/deny while `require_approval`/`downgrade`/`redact`/`sandbox` are sidecar/hosted-plane kinds the SDK routes (require_approval→QortaraApprovalRequired; unimplemented transform kinds→deny-closed); diagram corrected (`run()`, in-process/sidecar). 6 new conformance tests (direct run/arun governed, invoke-still-governed regression, run/arun-wrapped + invoke-untouched, AGT-binary boundary, sidecar require_approval→approval); 3 patch-internals tests re-pointed invoke→run. Full suite **116 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-08/CAP-01 marked RESOLVED.
 
 ---
+
+### Entry #38: GATE TRIBUNAL — Phase 16 (SEC-07 + CI-01/02 plan)
+
+**Timestamp**: 2026-06-09T17:00:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase16-sec07-ci-hardening.md) = ca09a643df82a6a76f0d14a2bfccc722e1cc2bed1cd9a5c71e5e5094ee7c4ffb
+
+**Previous Hash**: b3d0b661f85bd9e7c6495bb7afba551f1d2cae0548ff77db831379c1ccfd87d2
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 9da894a3a383433e9a1108f5257641439a8676561a3b9bd68d1ce9cb8fb63ea2
+
+**Decision**: Plan to harden GAP-SEC-07 (remove unused `__qortara_original__` bypass handle; identity-sentinel exempt so a raw truthy attr no longer exempts) + GAP-CI-01 (bandit + pip-audit → blocking; both verified exit 0 today) + GAP-CI-02 (pin gitleaks tarball SHA256, verify-before-extract) cleared all binding passes. Honesty framing accepted: SEC-07 is **defense-in-depth within** the cooperative-process boundary — THREAT-MODEL §5 unchanged; not a claim to defend against hostile in-process code. Audit caught a deeper CI-01 issue folded into scope: the existing `uv tool run pip-audit` audited an **isolated** env (not the project) — corrected to `uv run --with pip-audit pip-audit` so the blocking gate is meaningful, not theater. SBOM stays non-blocking by design (artifact gen, stated rationale). Cleared for /qor-implement.
+
+---
+
+### Entry #39: SEAL — Phase 16 (SEC-07 bypass-surface hardening + CI-01/02 gate hardening)
+
+**Timestamp**: 2026-06-09T17:20:00Z
+**Phase**: SEAL (substantiate, local — commit+push to PR #13)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(decorators + tool_patches + langgraph_patches) = 2988fa1e9dfcd9100569973bfbfb822b66b29f33536ea64de2237d9fe8138ddc
+
+**Previous Hash**: ca09a643df82a6a76f0d14a2bfccc722e1cc2bed1cd9a5c71e5e5094ee7c4ffb
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = cdc2f12dd9a92b41a097d2d9ff53f5624775b53cd0587067886aa024880c8c02
+
+**Decision**: Reality == Promise. **GAP-SEC-07 RESOLVED (defense-in-depth)** — removed the unread `__qortara_original__` handle from all four dispatch wrappers (originals live only in the unpatch dict; `__qortara_wrapped__` retained); `qortara_exempt` now sets a module-private identity sentinel and `is_exempt` checks `is _EXEMPT_MARKER`, so a stray/injected `__qortara_exempt__ = True` no longer disables enforcement — only the decorator does. THREAT-MODEL §5 (hostile in-process code) intentionally unchanged. **GAP-CI-01 RESOLVED** — bandit + pip-audit are now blocking in `security.yml` (`|| true` removed; both pass clean); pip-audit invocation corrected to audit the synced project venv (`uv run --with pip-audit`), not an isolated tool env, with a documented `--ignore-vuln` escape; SBOM kept non-blocking by design. **GAP-CI-02 RESOLVED** — gitleaks tarball pinned to SHA256 `5bc41815…e3ba` (from the official release checksums.txt), verified via `sha256sum -c` before extraction. 3 new tests (raw-attr-does-not-exempt unit + end-to-end; wrappers-expose-no-original); existing decorator-exempt tests still pass. Full suite **119 passed / 2 skipped**; ruff format-check + lint + mypy(0) clean. Brief GAP-SEC-07/CI-01/CI-02 marked RESOLVED.
+
+---
 *Chain integrity: VALID*
-*Red-team CRITICAL set + deferred HIGH SEC-01/CFG-01/SEC-08/CAP-01 closed. Remaining deferred: SEC-07 (unpatch/exempt hardening), CI-01/02 (CI gate hardening), DOC-01(rest), require_compatible_protocol wiring, MED/LOW.*
+*All CONFIRMED red-team findings closed except documented residuals. Remaining deferred: DOC-01(rest), require_compatible_protocol wiring (needs sidecar health-version field), MED/LOW hardening.*

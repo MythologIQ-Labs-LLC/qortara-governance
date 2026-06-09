@@ -32,3 +32,14 @@ def test_unpatch_restores_original_method_object(fake_client) -> None:  # noqa: 
     assert BaseTool.run is original_run
     assert BaseTool.arun is original_arun
     assert not getattr(BaseTool.run, "__qortara_wrapped__", False)
+
+
+def test_wrappers_do_not_expose_original(fake_client) -> None:  # noqa: ANN001
+    # GAP-SEC-07: the wrapper must NOT carry a __qortara_original__ handle (a
+    # gratuitous "restore me" bypass aid). originals live only in the unpatch dict.
+    originals = tool_apply(fake_client)
+    try:
+        assert not hasattr(BaseTool.run, "__qortara_original__")
+        assert not hasattr(BaseTool.arun, "__qortara_original__")
+    finally:
+        tool_unpatch(originals)

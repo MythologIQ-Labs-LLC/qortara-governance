@@ -26,13 +26,18 @@ jobs:
       - name: Install package
         run: uv sync --all-extras --python 3.12
 
-      # --- report-only initially (non-blocking); harden to blocking after baseline triage ---
+      # --- BLOCKING gates (baseline triaged clean; see Phase 16 / GAP-CI-01) ---
+      # Audit the SYNCED project venv (not an isolated tool env), so real
+      # dependencies are checked. For a future unfixable transitive advisory,
+      # add `--ignore-vuln GHSA-xxxx` here with a tracking note.
       - name: Dependency audit (pip-audit)
-        run: uv tool run pip-audit || true
+        run: uv run --with pip-audit pip-audit
 
       - name: SAST (bandit)
-        run: uv tool run bandit -r src -ll || true
+        run: uv tool run bandit -r src -ll
 
+      # SBOM is artifact generation, not a security finding — kept non-blocking
+      # on purpose so a CycloneDX tooling hiccup never fails the build.
       - name: SBOM (CycloneDX)
         run: |
           uv tool run --from cyclonedx-bom cyclonedx-py environment -o sbom.cdx.json || \
@@ -58,8 +63,14 @@ jobs:
       - name: Install gitleaks
         run: |
           VERSION=8.21.2
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
-            | tar -xz gitleaks
+          # Pinned SHA256 of gitleaks_${VERSION}_linux_x64.tar.gz from the release
+          # checksums.txt. Bumping VERSION REQUIRES updating this digest (GAP-CI-02).
+          SHA256=5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba
+          TARBALL="gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSL -o "${TARBALL}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${TARBALL}"
+          echo "${SHA256}  ${TARBALL}" | sha256sum -c -   # aborts on mismatch
+          tar -xzf "${TARBALL}" gitleaks
           sudo mv gitleaks /usr/local/bin/
       - name: Secret scan (gitleaks)
         run: gitleaks detect --source . --no-git --redact --verbose --exit-code 1

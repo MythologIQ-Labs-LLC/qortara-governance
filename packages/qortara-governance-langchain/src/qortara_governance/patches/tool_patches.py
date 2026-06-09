@@ -139,7 +139,8 @@ def _make_sync_wrapper(
 
     wrapper.__qualname__ = original.__qualname__
     wrapper.__qortara_wrapped__ = True  # type: ignore[attr-defined]
-    wrapper.__qortara_original__ = original  # type: ignore[attr-defined]
+    # No __qortara_original__ handle is exposed on the wrapper (GAP-SEC-07): the
+    # original is held only in the returned `originals` dict for unpatch().
     return wrapper
 
 
@@ -152,7 +153,8 @@ def _make_async_wrapper(
 
     wrapper.__qualname__ = original.__qualname__
     wrapper.__qortara_wrapped__ = True  # type: ignore[attr-defined]
-    wrapper.__qortara_original__ = original  # type: ignore[attr-defined]
+    # No __qortara_original__ handle is exposed on the wrapper (GAP-SEC-07): the
+    # original is held only in the returned `originals` dict for unpatch().
     return wrapper
 
 
