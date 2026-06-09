@@ -37,7 +37,9 @@ class FakeClient(SidecarClient):  # type: ignore[misc]
     def close(self) -> None:
         pass
 
-    def decide(self, request: ActionRequest, tool_input: object = None) -> ActionDecision:  # type: ignore[override]
+    def decide(
+        self, request: ActionRequest, tool_input: object = None
+    ) -> ActionDecision:  # type: ignore[override]
         self.requests.append(request)
         kind = (
             self.scripted_decisions.pop(0)

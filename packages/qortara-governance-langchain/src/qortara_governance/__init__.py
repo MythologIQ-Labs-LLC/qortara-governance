@@ -28,7 +28,10 @@ from qortara_governance.exceptions import (
 )
 from qortara_governance.launcher import launch
 from qortara_governance.patches import apply_patches, unpatch_all
-from qortara_governance.protocol_version import PROTOCOL_VERSION, require_compatible_protocol
+from qortara_governance.protocol_version import (
+    PROTOCOL_VERSION,
+    require_compatible_protocol,
+)
 
 __version__ = "0.2.1"
 
@@ -128,7 +131,9 @@ def init_agt(agent_id: str, allowed_tools: list[str]) -> AgtPolicyAdapter:
     patch enforces on this agent's dispatches.
     """
     adapter = AgtPolicyAdapter().allow(agent_id, allowed_tools)
-    apply_patches(AgtDecisionClient(adapter))
+    # AgtDecisionClient is a structural drop-in for SidecarClient (same .decide
+    # contract); apply_patches is nominally typed to SidecarClient.
+    apply_patches(AgtDecisionClient(adapter))  # type: ignore[arg-type]
     return adapter
 
 

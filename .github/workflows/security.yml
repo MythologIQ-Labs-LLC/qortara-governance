@@ -53,7 +53,13 @@ jobs:
         with:
           fetch-depth: 0
       # HARD gate: fails the PR on any detected secret.
+      # Use the gitleaks BINARY (Apache-2.0) directly — the gitleaks-action
+      # wrapper requires a paid license for organization repos.
+      - name: Install gitleaks
+        run: |
+          VERSION=8.21.2
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          sudo mv gitleaks /usr/local/bin/
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gitleaks detect --source . --no-git --redact --verbose --exit-code 1

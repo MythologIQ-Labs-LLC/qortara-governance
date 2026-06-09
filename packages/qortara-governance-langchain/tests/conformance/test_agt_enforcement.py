@@ -50,21 +50,27 @@ def _adapter() -> AgtPolicyAdapter:
 
 # --- unit: AgtDecisionClient maps AGT's verdict onto an ActionDecision ---
 
+
 def test_agt_client_allows_permitted_tool() -> None:
     client = AgtDecisionClient(_adapter())
-    req = build_tool_action("search", {}, AgentContext(tenant_id="t", agent_id="agent-x", session_id="s"))
+    req = build_tool_action(
+        "search", {}, AgentContext(tenant_id="t", agent_id="agent-x", session_id="s")
+    )
     assert client.decide(req).decision_kind == DecisionKind.ALLOW
 
 
 def test_agt_client_denies_unpermitted_tool() -> None:
     client = AgtDecisionClient(_adapter())
-    req = build_tool_action("delete_db", {}, AgentContext(tenant_id="t", agent_id="agent-x", session_id="s"))
+    req = build_tool_action(
+        "delete_db", {}, AgentContext(tenant_id="t", agent_id="agent-x", session_id="s")
+    )
     decision = client.decide(req)
     assert decision.decision_kind == DecisionKind.DENY
     assert "delete_db" in decision.rationale  # AGT's violation names the tool
 
 
 # --- integration: the real BaseTool dispatch patch enforces via AGT ---
+
 
 def test_dispatch_patch_routes_allow_through_agt() -> None:
     apply_patches(AgtDecisionClient(_adapter()))

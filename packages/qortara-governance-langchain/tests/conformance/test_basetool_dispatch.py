@@ -56,7 +56,9 @@ def _inject(monkeypatch: pytest.MonkeyPatch, kind: DecisionKind) -> None:
         policy_version_sha256="conformance",
         rationale="conformance-injected",
         policy_pack_id="conformance",
-        approval_url="https://approve.example/x" if kind == DecisionKind.REQUIRE_APPROVAL else None,
+        approval_url="https://approve.example/x"
+        if kind == DecisionKind.REQUIRE_APPROVAL
+        else None,
         ts=time.time(),
     )
     monkeypatch.setattr(

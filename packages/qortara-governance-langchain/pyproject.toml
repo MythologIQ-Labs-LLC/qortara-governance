@@ -60,3 +60,9 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = "qortara_protocol.*"
 ignore_missing_imports = true
+
+# Microsoft AGT (agent-governance-toolkit-core 4.0.0) ships without a py.typed
+# marker; allow the missing stubs for the in-process decision-engine import.
+[[tool.mypy.overrides]]
+module = "agent_control_plane.*"
+ignore_missing_imports = true

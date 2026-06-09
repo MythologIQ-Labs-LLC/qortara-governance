@@ -47,12 +47,17 @@ def _client() -> AgtDecisionClient:
 
 def _req():
     return build_tool_action(
-        "database_query", {}, AgentContext(tenant_id="t", agent_id="agent-x", session_id="s")
+        "database_query",
+        {},
+        AgentContext(tenant_id="t", agent_id="agent-x", session_id="s"),
     )
 
 
 def test_safe_arg_allows() -> None:
-    assert _client().decide(_req(), {"query": "SELECT 1"}).decision_kind == DecisionKind.ALLOW
+    assert (
+        _client().decide(_req(), {"query": "SELECT 1"}).decision_kind
+        == DecisionKind.ALLOW
+    )
 
 
 def test_destructive_sql_denied() -> None:
@@ -88,6 +93,8 @@ def test_sidecar_client_does_not_inline_tool_input() -> None:
         )
 
     c = SidecarClient("http://fake", None)
-    c._client = httpx.Client(base_url="http://fake", transport=httpx.MockTransport(handler))
+    c._client = httpx.Client(
+        base_url="http://fake", transport=httpx.MockTransport(handler)
+    )
     c.decide(_req(), {"query": "SECRET-DROP-VALUE"})
     assert "SECRET-DROP-VALUE" not in seen["body"]  # args not inlined

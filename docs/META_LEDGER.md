@@ -619,3 +619,26 @@ SHA256(content_hash + previous_hash) = 8e49c1090cadfeb6bbabb17497d800bec53a9f421
 ---
 *Chain integrity: VALID*
 *CI gates added. Open follow-ups: harden report-only gates to blocking; protocol reconcile; sidecar cleanup; LangGraph ToolNode → AGT.*
+
+---
+
+### Entry #29: HOTFIX — green PR #13 CI (format / mypy / gitleaks)
+
+**Timestamp**: 2026-06-09T12:40:00Z
+**Phase**: HOTFIX (routine — formatting/lint/CI per auto-dev escalation)
+**Author**: Specialist (auto-dev orchestration)
+**Risk Grade**: L1
+
+**Content Hash**:
+SHA256(pyproject.toml + __init__.py + security.yml) = 8222f1eeadef05ab7846314dd1fcc9422c3a2c1709f917e6076d27a82ef1538e
+
+**Previous Hash**: ae6d1941a422d26d563a23a1e5e54e860797b580d523a764cf6569cc6b5aa0ba
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 59cfe7424c8faaedbe3673a54ef734bc9aaabca314b33c19d7d51ec2c7970032
+
+**Decision**: First CI run on PR #13 — `governance` PASS, `scan` PASS; `test` + `secrets` FAILED. Root causes + fixes: (1) `ci.yml` runs `ruff format --check` + `mypy` (which I had not run locally) — ran `ruff format` on 7 files; added mypy override for `agent_control_plane.*` (no py.typed) + `# type: ignore[arg-type]` on the AgtDecisionClient drop-in. (2) `gitleaks-action@v2` requires a paid license for org repos — replaced with the gitleaks **binary** (Apache-2.0), `--no-git` working-tree scan. Local parity now green: ruff format-check + lint + mypy (0 issues) + pytest 79/2. Re-pushed to PR #13.
+
+---
+*Chain integrity: VALID*
+*Tracking PR #13 CI to green (re-run after this push).*

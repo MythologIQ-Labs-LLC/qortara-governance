@@ -46,7 +46,9 @@ class AgtDecisionClient:
         self._adapter = adapter
         self._policy_id = f"agt-core:{agt_version() or 'unknown'}"
 
-    def decide(self, request: ActionRequest, tool_input: object = None) -> ActionDecision:
+    def decide(
+        self, request: ActionRequest, tool_input: object = None
+    ) -> ActionDecision:
         """Map an AGT policy verdict onto an ActionDecision (fail-closed).
 
         `tool_input` is consumed in-process (no wire) so AGT's argument-level
@@ -54,9 +56,7 @@ class AgtDecisionClient:
         is a dict; otherwise no args are supplied.
         """
         args: dict[str, Any] = tool_input if isinstance(tool_input, dict) else {}
-        violation = self._adapter.check(
-            request.agent_id, request.target_resource, args
-        )
+        violation = self._adapter.check(request.agent_id, request.target_resource, args)
         if violation is None:
             return self._decision(DecisionKind.ALLOW, "allowed by AGT policy")
         return self._decision(DecisionKind.DENY, violation)

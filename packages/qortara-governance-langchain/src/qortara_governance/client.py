@@ -81,7 +81,9 @@ class SidecarClient:
         if self._breaker.consecutive_failures >= _BREAKER_THRESHOLD:
             self._breaker.tripped_at = time.time()
 
-    def decide(self, request: ActionRequest, tool_input: object = None) -> ActionDecision:
+    def decide(
+        self, request: ActionRequest, tool_input: object = None
+    ) -> ActionDecision:
         """POST /v0.1/decisions — returns ActionDecision; deny-all on breaker trip.
 
         `tool_input` is accepted for interface parity with in-process decision
