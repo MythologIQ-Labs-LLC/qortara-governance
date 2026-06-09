@@ -18,6 +18,16 @@ A Python monorepo of framework-specific adapters that intercept tool dispatch in
 
 Most agent governance hooks into callbacks or wraps tools. That's observation, not enforcement: the dispatch path that native tool-calling agents take can route around it. These adapters sit on the dispatch path itself — `BaseTool.invoke`, `ToolNode.invoke`, and equivalents in other frameworks — so policy decisions are synchronous, deterministic, and impossible to bypass.
 
+## Public and hosted layers
+
+`qortara-governance` is the open integration and deterministic enforcement layer.
+
+It can run locally with policy packs, local audit events, and no hosted dependency. Qortara's licensed hosted platform adds proportional authority evaluation, cumulative and sequence-aware risk analysis, adaptive escalation, tenant policy, managed approvals, and enterprise enforcement on Azure.
+
+The public package exposes the request, response, adapter, and enforcement contracts. It does not expose the proprietary algorithms used by the hosted decision service.
+
+See [`docs/ARCHITECTURE-BOUNDARIES.md`](docs/ARCHITECTURE-BOUNDARIES.md) for the full responsibility and capability split.
+
 ## Packages
 
 | Package | Status | PyPI | Description |
@@ -51,6 +61,8 @@ Full integration guide: [`packages/qortara-governance-langchain/README.md`](pack
 qortara-governance/
 ├── packages/
 │   └── qortara-governance-langchain/   LangChain + LangGraph adapter
+├── docs/
+│   └── ARCHITECTURE-BOUNDARIES.md       Public, hosted, and Azure boundaries
 ├── pyproject.toml                       uv workspace config
 └── .github/                             shared CI + issue templates
 ```
