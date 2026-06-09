@@ -22,7 +22,13 @@ def require_compatible_protocol(peer_version: str) -> None:
     """Raise QortaraProtocolMismatch when the peer's major version differs from ours.
 
     Same-major versions are considered wire-compatible; a differing major is a
-    breaking change and fails closed before any decision is trusted.
+    breaking change and fails closed before any decision is trusted. A missing or
+    empty peer version is itself a mismatch (fail-closed), not an opaque crash
+    (GAP-M-3).
     """
+    if not peer_version:
+        raise QortaraProtocolMismatch(
+            expected=PROTOCOL_VERSION, received=repr(peer_version)
+        )
     if _major(peer_version) != _major(PROTOCOL_VERSION):
         raise QortaraProtocolMismatch(expected=PROTOCOL_VERSION, received=peer_version)

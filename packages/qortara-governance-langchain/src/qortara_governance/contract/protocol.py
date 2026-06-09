@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from qortara_governance.client import SidecarClient
 from qortara_governance.contract.state import AdapterState
+from qortara_governance.decision_client import DecisionClient
 
 
 @runtime_checkable
@@ -21,7 +21,7 @@ class FrameworkAdapter(Protocol):
     framework_module: str
     contract_version: str
 
-    def apply(self, client: SidecarClient) -> AdapterState:
+    def apply(self, client: DecisionClient) -> AdapterState:
         """Install patches against the target framework; return an AdapterState."""
 
     def unpatch(self, state: AdapterState) -> None:

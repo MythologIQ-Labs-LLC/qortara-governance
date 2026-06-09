@@ -894,3 +894,47 @@ SHA256(content_hash + previous_hash) = ad2b5b58c14bb12594faa7891ac959280186da286
 ---
 *Chain integrity: VALID*
 *All CONFIRMED red-team findings remediated. Residuals (intentional): breaker half-open, policy_version_sha256 naming (external protocol field), require_compatible_protocol wiring (needs sidecar health-version field), GAP-DOC-01(rest). The deep-audit remediation program is complete.*
+
+---
+
+### Entry #42: GATE TRIBUNAL — Phase 18 (e2e-review remediation plan)
+
+**Timestamp**: 2026-06-09T19:10:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase18-review-remediation.md) = 84ac385c094c6bde35d96b20be9aa94a34d9b0ab6e639958e45d3980b921ea1c
+
+**Previous Hash**: 14af072d8a8ecc078ff9375efa6318718e0d2671efda53d229c40b5b02a4622a
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 5fbe2955ffad2179f52878b1b3c274cf0f733349736d70ffca78310027e484bb
+
+**Decision**: An external e2e review (22 findings) was triaged against ground truth before acting. **3 false positives confirmed and rejected**: H-4/H-5 (circuit breaker + 5xx ARE covered by `test_client_circuit_breaker.py`), M-7 (version drift guarded by `test_version_consistency.py`). Won't-fix per maintainer steer/prior triage: M-8 (AGT `==4.0.0` for consistency with the AGT repo), H-7 (keep gitleaks working-tree scan), M-4/M-5/M-2/M-1/M-10/M-13. Plan to FIX C-1 (unified init fingerprint guard), C-2 (`DecisionClient` Protocol), H-1 (patch lock), H-2 (symmetric unpatch), H-3 (4xx rationale), H-6 (callback tests), M-3 (protocol None guard), M-9 (conftest ctx reset), M-11 (ci.yml permissions), M-12 (pin qor-logic) cleared all binding passes. Cleared for /qor-implement.
+
+---
+
+### Entry #43: SEAL — Phase 18 (e2e-review remediation — verified set)
+
+**Timestamp**: 2026-06-09T19:30:00Z
+**Phase**: SEAL (substantiate, local — commit+push to PR #13)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(decision_client + __init__ + client + callback + protocol_version + contract/protocol + registry + tool_patches + langgraph_patches) = 2bb16a5b7d3c325a2ae884795df632b6867e77e1f6873bd618147f2231130a75
+
+**Previous Hash**: 84ac385c094c6bde35d96b20be9aa94a34d9b0ab6e639958e45d3980b921ea1c
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = e2b9eeff2339d45b9009bdde00c37f13ea8385f941eb4b55cb758efbeb85ddb0
+
+**Decision**: Reality == Promise. **C-2** new `DecisionClient` runtime-checkable Protocol; patch layer / registry / FrameworkAdapter / callback typed against it; `init_agt`'s `# type: ignore[arg-type]` dropped (mypy 0 across 22 files confirms both clients satisfy it). **C-1** unified `_InitFingerprint(mode, params)` shared by `init`/`init_agt`; `init_agt` is now idempotent (returns the stored `_AGT_ADAPTER`), and any mismatch (incl. mixing init/init_agt) raises one consistent error; `unpatch_all` clears both globals. **H-1** `threading.Lock` makes apply/unpatch atomic. **H-2** symmetric ToolNode unpatch. **H-3** 4xx → "sidecar client error: HTTP N" deny (distinct from "unreachable"), still fail-closed. **M-3** `require_compatible_protocol` rejects None/empty cleanly. **M-9** conftest resets `_ctx_var`. **CI**: ci.yml gains `permissions: contents: read` (M-11), compliance pins `qor-logic==0.106.0` (M-12). 12 new tests (init_agt idempotency + cross-init guard, Protocol isinstance, 4xx rationale, protocol None guard, callback coverage). False positives H-4/H-5/M-7 rejected with evidence. Full suite **139 passed / 2 skipped**; ruff + mypy(0) clean.
+
+---
+*Chain integrity: VALID*
+*External e2e review triaged + verified set remediated. Standing residuals unchanged (breaker half-open, policy_version_sha256 naming, require_compatible_protocol wiring, DOC-01 rest).*

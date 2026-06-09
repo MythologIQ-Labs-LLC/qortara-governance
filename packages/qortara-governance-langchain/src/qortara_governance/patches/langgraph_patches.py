@@ -6,8 +6,8 @@ import asyncio
 from types import MappingProxyType
 from typing import Any, Callable
 
-from qortara_governance.client import SidecarClient
 from qortara_governance.context import get_context
+from qortara_governance.decision_client import DecisionClient
 from qortara_governance.contract.state import CONTRACT_VERSION, AdapterState
 from qortara_governance.patches.action_builder import build_toolnode_action
 from qortara_governance.patches.tool_patches import (
@@ -64,7 +64,7 @@ def _extract_tool_calls(state: Any) -> list[tuple[str, dict]]:
 
 
 def _decide_each(
-    tool_calls: list[tuple[str, dict]], client: SidecarClient, observe: bool = False
+    tool_calls: list[tuple[str, dict]], client: DecisionClient, observe: bool = False
 ) -> None:
     ctx = get_context()
     if ctx is None:
@@ -84,7 +84,7 @@ def _decide_each(
 
 
 def _make_wrapper(
-    original: _OriginalMethod, client: SidecarClient, observe: bool = False
+    original: _OriginalMethod, client: DecisionClient, observe: bool = False
 ) -> _OriginalMethod:
     def wrapper(self: object, input: Any, config: Any = None, **kwargs: Any) -> Any:
         _decide_each(_extract_tool_calls(input), client, observe)
@@ -98,7 +98,7 @@ def _make_wrapper(
 
 
 def _make_async_wrapper(
-    original: _OriginalMethod, client: SidecarClient, observe: bool = False
+    original: _OriginalMethod, client: DecisionClient, observe: bool = False
 ) -> _OriginalMethod:
     async def wrapper(
         self: object, input: Any, config: Any = None, **kwargs: Any
@@ -120,7 +120,7 @@ def _make_async_wrapper(
 
 
 def apply(
-    client: SidecarClient, observe: bool = False
+    client: DecisionClient, observe: bool = False
 ) -> dict[str, _OriginalMethod] | None:
     """Install ToolNode.invoke + .ainvoke patches if langgraph present; else skip."""
     if not _langgraph_available():
@@ -143,14 +143,16 @@ def apply(
 
 
 def unpatch(originals: dict[str, _OriginalMethod] | None) -> None:
-    """Restore ToolNode.invoke/.ainvoke. No-op if originals is None (langgraph absent)."""
+    """Restore ToolNode.invoke/.ainvoke. No-op if originals is None (langgraph absent).
+
+    Symmetric with apply(), which always snapshots both methods (GAP-H-2).
+    """
     if originals is None:
         return
     from langgraph.prebuilt import ToolNode
 
     ToolNode.invoke = originals["invoke"]  # type: ignore[method-assign]
-    if "ainvoke" in originals:
-        ToolNode.ainvoke = originals["ainvoke"]  # type: ignore[method-assign]
+    ToolNode.ainvoke = originals["ainvoke"]  # type: ignore[method-assign]
 
 
 class LangGraphToolNodeAdapter:
@@ -163,7 +165,7 @@ class LangGraphToolNodeAdapter:
     def __init__(self, observe: bool = False) -> None:
         self._observe = observe
 
-    def apply(self, client: SidecarClient) -> AdapterState:
+    def apply(self, client: DecisionClient) -> AdapterState:
         """Install the ToolNode patch and return an AdapterState.
 
         Raises ImportError when langgraph is not installed; the registry is

@@ -13,8 +13,8 @@ from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 
-from qortara_governance.client import SidecarClient
 from qortara_governance.context import get_context
+from qortara_governance.decision_client import DecisionClient
 from qortara_governance.otel import current_trace_context
 from qortara_protocol import (
     ActionDecision,
@@ -62,7 +62,7 @@ def _observe_decision() -> ActionDecision:
 class QortaraCallbackHandler(BaseCallbackHandler):
     """Callback handler emitting observe-evidence for non-tool dispatch events."""
 
-    def __init__(self, client: SidecarClient) -> None:
+    def __init__(self, client: DecisionClient) -> None:
         self._client = client
 
     def _emit(self, action_type: ActionType, resource: str) -> None:

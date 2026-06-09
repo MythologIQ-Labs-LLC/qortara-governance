@@ -18,7 +18,9 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Install qor-logic
-        run: uv tool install qor-logic
+        # Pinned for supply-chain reproducibility of a HARD gate (GAP-M-12).
+        # Bump deliberately when adopting a new qor-logic release.
+        run: uv tool install qor-logic==0.106.0
 
       # HARD gate: fails on any DAMAGED / INCOMPLETE governance artifact.
       - name: Governance health

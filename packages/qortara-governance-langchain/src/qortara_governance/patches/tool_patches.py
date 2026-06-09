@@ -28,8 +28,8 @@ import warnings
 from types import MappingProxyType
 from typing import Any, Callable
 
-from qortara_governance.client import SidecarClient
 from qortara_governance.context import get_context
+from qortara_governance.decision_client import DecisionClient
 from qortara_governance.contract.state import CONTRACT_VERSION, AdapterState
 from qortara_governance.decorators import is_exempt
 from qortara_governance.exceptions import (
@@ -112,7 +112,7 @@ def enforce_decision(decision: ActionDecision, *, observe: bool = False) -> None
 
 
 def _decide_or_raise(
-    tool: object, tool_input: Any, client: SidecarClient, observe: bool = False
+    tool: object, tool_input: Any, client: DecisionClient, observe: bool = False
 ) -> None:
     """Request a decision; permit only ALLOW/EXEMPT/OBSERVE, else fail closed."""
     if is_exempt(tool):
@@ -132,7 +132,7 @@ def _tool_input_of(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
 
 
 def _make_sync_wrapper(
-    original: _OriginalMethod, client: SidecarClient, observe: bool = False
+    original: _OriginalMethod, client: DecisionClient, observe: bool = False
 ) -> _OriginalMethod:
     def wrapper(self: object, *args: Any, **kwargs: Any) -> Any:
         _decide_or_raise(self, _tool_input_of(args, kwargs), client, observe)
@@ -146,7 +146,7 @@ def _make_sync_wrapper(
 
 
 def _make_async_wrapper(
-    original: _OriginalMethod, client: SidecarClient, observe: bool = False
+    original: _OriginalMethod, client: DecisionClient, observe: bool = False
 ) -> _OriginalMethod:
     async def wrapper(self: object, *args: Any, **kwargs: Any) -> Any:
         tool_input = _tool_input_of(args, kwargs)
@@ -166,7 +166,7 @@ def _make_async_wrapper(
     return wrapper
 
 
-def apply(client: SidecarClient, observe: bool = False) -> dict[str, _OriginalMethod]:
+def apply(client: DecisionClient, observe: bool = False) -> dict[str, _OriginalMethod]:
     """Install BaseTool.run/arun patches (the dispatch funnel). Returns originals.
 
     invoke()/ainvoke() reach policy *through* run/arun, and a direct run/arun call
@@ -213,7 +213,7 @@ class LangChainToolAdapter:
     def __init__(self, observe: bool = False) -> None:
         self._observe = observe
 
-    def apply(self, client: SidecarClient) -> AdapterState:
+    def apply(self, client: DecisionClient) -> AdapterState:
         """Install patches and return an AdapterState snapshot of the originals."""
         originals = apply(client, self._observe)
         return AdapterState(

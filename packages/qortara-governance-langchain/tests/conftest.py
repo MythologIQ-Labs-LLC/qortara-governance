@@ -98,11 +98,13 @@ def ctx() -> AgentContext:
 
 @pytest.fixture(autouse=True)
 def _unpatch_after(monkeypatch: pytest.MonkeyPatch) -> Any:
-    """Auto-unpatch between tests to keep state isolated."""
+    """Auto-unpatch between tests + reset the agent context to keep state isolated."""
     yield
+    from qortara_governance import context as _ctxmod
     from qortara_governance.patches import unpatch_all
 
     unpatch_all()
+    _ctxmod._ctx_var.set(None)  # GAP-M-9: prevent context leaking across tests
 
 
 class FakeTool:

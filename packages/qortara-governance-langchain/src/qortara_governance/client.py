@@ -126,12 +126,18 @@ class SidecarClient:
             )
             if resp.status_code >= 500:
                 self._record_failure()
-                return _deny_all(f"sidecar 5xx: {resp.status_code}")
-            resp.raise_for_status()
+                return _deny_all(f"sidecar 5xx: HTTP {resp.status_code} — deny-closed")
+            if resp.status_code >= 400:
+                # 4xx is a client/config error (auth, bad request) — distinct from
+                # an unreachable sidecar, but still fail-closed (GAP-H-3).
+                self._record_failure()
+                return _deny_all(
+                    f"sidecar client error: HTTP {resp.status_code} — deny-closed"
+                )
             decision = ActionDecision.model_validate(resp.json())
             self._record_success()
             return decision
-        except (httpx.RequestError, httpx.HTTPStatusError):
+        except httpx.RequestError:
             self._record_failure()
             return _deny_all("sidecar unreachable — deny-closed")
         except (ValidationError, ValueError):
