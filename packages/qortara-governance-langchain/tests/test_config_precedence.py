@@ -53,3 +53,18 @@ def test_invalid_policy_mode_kwarg_raises(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.delenv("QORTARA_POLICY_MODE", raising=False)
     with pytest.raises(ValueError):
         load_config(policy_mode="halfway")
+
+
+def test_invalid_policy_mode_raises_typed_configuration_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # B2-followup: config errors raise a typed QortaraConfigurationError that is
+    # ALSO a ValueError (so existing `except ValueError` handlers stay green).
+    from qortara_governance.exceptions import QortaraConfigurationError
+
+    monkeypatch.delenv("QORTARA_POLICY_MODE", raising=False)
+    with pytest.raises(QortaraConfigurationError):
+        load_config(policy_mode="bogus")
+    monkeypatch.setenv("QORTARA_POLICY_MODE", "bogus")
+    with pytest.raises(QortaraConfigurationError):
+        load_config()

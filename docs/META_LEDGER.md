@@ -938,3 +938,47 @@ SHA256(content_hash + previous_hash) = e2b9eeff2339d45b9009bdde00c37f13ea8385f94
 ---
 *Chain integrity: VALID*
 *External e2e review triaged + verified set remediated. Standing residuals unchanged (breaker half-open, policy_version_sha256 naming, require_compatible_protocol wiring, DOC-01 rest).*
+
+---
+
+### Entry #44: GATE TRIBUNAL — Phase 19 (README truth + agent-path conformance + config exception)
+
+**Timestamp**: 2026-06-09T20:30:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase19-docs-conformance-exceptions.md) = 7bc4991cc2027995163f31199307ee375af4a3f30f99b12cdd15e00253dbfd2f
+
+**Previous Hash**: 2bb16a5b7d3c325a2ae884795df632b6867e77e1f6873bd618147f2231130a75
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 34ee3431cf3bc2de9bb6bf8adc614bc54591e6b2c6e273b4d420b07bc481dbd3
+
+**Decision**: Plan to fix N1 (root README dispatch-path: `invoke`→`run/arun` truth + "impossible to bypass"→cooperative-boundary-qualified), N2/B1-followup (agent-path conformance), and N3/B2-followup (`QortaraConfigurationError`) cleared all binding passes. **Plan amended after research** (re-orient): langchain ≥1.0 removed `AgentExecutor` — the `langchain` test-dep was rejected; the modern `create_agent` path runs tools via `ToolNode` (governed + tested). N2 scoped to the genuinely-new no-dep surfaces (stream/astream funnel + multi-tool ToolNode); N3 to the one clean raise site (config), deferring the fail-closed-incompatible §8.3 exceptions with rationale. No runtime dep, no behavior change. Cleared for /qor-implement.
+
+---
+
+### Entry #45: SEAL — Phase 19 (README truth + B1/B2 follow-ups)
+
+**Timestamp**: 2026-06-09T20:50:00Z
+**Phase**: SEAL (substantiate, local — commit+push to a new PR)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(exceptions + config + __init__) = 96aa29fc43c76fee4995aab39cc8a6bb0b7ad0e479b482b34d2b67dfc7360245
+
+**Previous Hash**: 7bc4991cc2027995163f31199307ee375af4a3f30f99b12cdd15e00253dbfd2f
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = df90be1dc7e97d76c6d8d68135236b4fedd777675c769cf815d1255416b9d470
+
+**Decision**: Reality == Promise. **N1 RESOLVED** — root README now states the hook is `BaseTool.run`/`.arun` (the funnel invoke/ainvoke/stream pass through) + `ToolNode.invoke`/`.ainvoke`, and "impossible to bypass" → "bypass-resistant within the cooperative-process boundary (THREAT-MODEL §5)"; "bypass-proof" softened in README + pyproject description. **N2/B1-followup MOSTLY DONE** — discovered langchain ≥1.0 removed `AgentExecutor` (modern `create_agent` → `ToolNode`, already governed); added no-dep conformance: `BaseTool.stream`/`.astream` under DENY blocked (funnel), and a multi-tool `ToolNode` denied before any body runs. **N3/B2-followup PARTIAL** — `QortaraConfigurationError(QortaraError, ValueError)` raised from `load_config`/`init_agt` on invalid `policy_mode` (back-compatible); PolicyInvalid/DecisionMalformed/AuthenticationError/Timeout deferred (no clean raise site under deny-closed; post-Beta). BACKLOG B1/B2-followup updated. 4 new tests; full suite **143 passed / 2 skipped**; ruff + mypy(0) clean. No runtime dependency added.
+
+---
+*Chain integrity: VALID*
+*Phase 19 on a fresh branch off merged main; new PR pending. Residuals unchanged + the post-Beta items now explicitly catalogued in BACKLOG (live-LLM create_agent test; remote-daemon §8.3 exceptions).*

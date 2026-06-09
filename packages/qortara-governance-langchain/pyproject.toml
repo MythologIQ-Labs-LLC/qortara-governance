@@ -1,7 +1,7 @@
 [project]
 name = "qortara-governance-langchain"
 version = "0.2.1"
-description = "Qortara Governance — LangChain/LangGraph dispatch-path enforcement SDK. Bypass-proof BaseTool/ToolNode interception routed into Microsoft AGT's in-process policy engine; optional remote sidecar + hosted Azure decision service."
+description = "Qortara Governance — LangChain/LangGraph dispatch-path enforcement SDK. Bypass-resistant BaseTool/ToolNode interception routed into Microsoft AGT's in-process policy engine; optional remote sidecar + hosted Azure decision service."
 authors = [{ name = "MythologIQ Labs", email = "team@mythologiq.studio" }]
 license = { text = "Apache-2.0" }
 readme = "README.md"

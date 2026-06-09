@@ -12,6 +12,7 @@ from __future__ import annotations
 
 __all__ = [
     "QortaraError",
+    "QortaraConfigurationError",
     "QortaraPolicyDenied",
     "QortaraApprovalRequired",
     "QortaraSidecarUnavailable",
@@ -23,6 +24,14 @@ __all__ = [
 
 class QortaraError(Exception):
     """Base for all SDK-raised errors."""
+
+
+class QortaraConfigurationError(QortaraError, ValueError):
+    """Invalid SDK configuration (bad policy_mode, malformed init arguments).
+
+    Also subclasses ``ValueError`` so existing ``except ValueError`` handlers keep
+    catching invalid-config errors; new code can catch the typed name.
+    """
 
 
 class QortaraPolicyDenied(QortaraError):
