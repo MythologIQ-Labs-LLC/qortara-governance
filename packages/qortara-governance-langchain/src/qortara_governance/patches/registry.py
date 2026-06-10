@@ -49,6 +49,11 @@ class AdapterRegistry:
     def __init__(self) -> None:
         self._entries: dict[str, tuple[FrameworkAdapter, AdapterState]] = {}
         self._client: DecisionClient | None = None
+        # Introspection only (doctor / W3): the observe flag + evidence sink the
+        # active install was configured with. Storing them changes nothing about
+        # enforcement — the values are already baked into the dispatch wrappers.
+        self._observe: bool = False
+        self._evidence_sink: EvidenceSink | None = None
 
     def apply(
         self,
@@ -101,6 +106,8 @@ class AdapterRegistry:
         if self._client is not None:
             self._client.close()
         self._client = None
+        self._observe = False
+        self._evidence_sink = None
 
     def is_installed(self) -> bool:
         """Return True iff any adapters are currently applied."""
@@ -140,6 +147,8 @@ def apply_patches(
                 "Call qortara_governance.unpatch_all() first."
             )
         _REGISTRY.apply(client, _default_adapters(observe, evidence_sink))
+        _REGISTRY._observe = observe
+        _REGISTRY._evidence_sink = evidence_sink
 
 
 def unpatch_all() -> None:
@@ -151,6 +160,16 @@ def unpatch_all() -> None:
 def is_patched() -> bool:
     """Return True iff patches are currently applied."""
     return _REGISTRY.is_installed()
+
+
+def get_observe() -> bool:
+    """Introspection (doctor): is the active install in observe/shadow mode?"""
+    return _REGISTRY._observe
+
+
+def get_evidence_sink() -> EvidenceSink | None:
+    """Introspection (doctor): the configured evidence sink, or None."""
+    return _REGISTRY._evidence_sink
 
 
 def get_client() -> DecisionClient | None:

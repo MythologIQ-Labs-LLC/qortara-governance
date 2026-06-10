@@ -20,6 +20,7 @@ from qortara_governance.client import SidecarClient
 from qortara_governance.config import Config, PolicyMode, load_config
 from qortara_governance.context import AgentContext, get_context, set_context
 from qortara_governance.decorators import is_exempt, qortara_exempt
+from qortara_governance.doctor import GovernanceStatus, collect_status
 from qortara_governance.evidence import decision_evidence, execution_evidence
 from qortara_governance.evidence_sink import EvidenceSink, OTelEvidenceSink
 from qortara_governance.exceptions import (
@@ -50,6 +51,7 @@ __all__ = [
     "AgtPolicyAdapter",
     "Config",
     "EvidenceSink",
+    "GovernanceStatus",
     "OTelEvidenceSink",
     "PolicyMode",
     "QortaraApprovalRequired",
@@ -63,6 +65,7 @@ __all__ = [
     "QortaraSidecarUnavailable",
     "QortaraTimeout",
     "QortaraUngovernedDispatchWarning",
+    "collect_status",
     "contract",
     "decision_evidence",
     "execution_evidence",

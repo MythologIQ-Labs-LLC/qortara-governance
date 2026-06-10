@@ -1137,3 +1137,47 @@ SHA256(content_hash + previous_hash) = 2a30e8afd32861d4f6bc44bd6bd2dc44cd0182b31
 ---
 *Chain integrity: VALID*
 *B1-followup + B2-followup closed. Beta-blocking backlog cleared; remaining is post-Beta wishlist (W1–W3) + standing follow-ups (ToolNode execution evidence, approval/transform events, timed_out, breaker half-open, require_compatible_protocol wiring, PolicyInvalid/DecisionMalformed).*
+
+---
+
+### Entry #53: GATE TRIBUNAL — Phase 23 (doctor diagnostics CLI plan)
+
+**Timestamp**: 2026-06-10T01:00:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L2
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase23-doctor-cli.md) = 5a2161ab973776e06502642203be182b7da1ca7373f5338734e42ce7b48d1af2
+
+**Previous Hash**: 818658d508710f199c9bf35e098d94812273786b5818a6110fbc5a77d69be7cd
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 9adafb112f13ad272813648efa3eb8c74a87fa1405932a0c311edc2b25acd6af
+
+**Decision**: Plan for W3 (`qortara-governance doctor`) cleared all binding passes. The only enforcement-adjacent change is additive read-only introspection: the registry stores the `observe`/`evidence_sink` values already passed to `apply_patches` and exposes `get_observe()`/`get_evidence_sink()` — no behavior change to patch install or dispatch. `doctor` is read-only, never raises, and never surfaces the `tenant_key` value (presence only). No new dependency. Cleared for /qor-implement.
+
+---
+
+### Entry #54: SEAL — Phase 23 (doctor diagnostics CLI)
+
+**Timestamp**: 2026-06-10T01:20:00Z
+**Phase**: SEAL (substantiate, local — commit+push to a new PR)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L2
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(doctor + registry + patches/__init__ + __init__) = cfcadd868178f28d54cf3066a544791428de4b429bd92b1d5d25362132f83d78
+
+**Previous Hash**: 5a2161ab973776e06502642203be182b7da1ca7373f5338734e42ce7b48d1af2
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 07743b7efe826fe0709ce9b9eb8f44a9bf995d16abd9515684c5d7dfa6738c77
+
+**Decision**: Reality == Promise. **W3 SHIPPED.** `python -m qortara_governance.doctor [--json]` reports patch state, decision client, enforce/observe, evidence sink, AgentContext, wrapped methods, and warns on the silent traps (no context, observe, no sink, plaintext-credential transport); exit 0 if active else 1. `collect_status()` / `GovernanceStatus` exported for programmatic use. Registry gained read-only `get_observe()`/`get_evidence_sink()` (stores values already passed to apply_patches — no enforcement change). Output is ASCII-safe (no em-dash mojibake on cp1252 consoles); `tenant_key` value never printed (redaction-tested). 7 new tests; full suite **180 passed / 2 skipped** on latest AND the 0.3 floor; ruff + mypy(0/25) clean. BACKLOG W3 → done. No new dependency, no enforcement-path change.
+
+---
+*Chain integrity: VALID*
+*W3 done. Remaining post-Beta: W1 (sibling adapters — own packages/ folder each), W2 (hosted, blocked) + standing follow-ups.*
