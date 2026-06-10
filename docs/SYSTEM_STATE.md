@@ -4,124 +4,111 @@
 
 | Attribute | Value |
 |-----------|-------|
-| **Last Updated** | 2026-06-09 |
-| **Updated By** | Specialist (auto-dev) |
-| **Phase** | IMPLEMENTING — AGT pivot complete (Phases 01–10 sealed) |
-| **Iteration** | 10 |
-| **Session Seal** | local hold (Review Boundary — no commit) |
+| **Last Updated** | 2026-06-10 |
+| **Updated By** | Judge (auto-dev) |
+| **Phase** | MERGED — Phases 01–23 sealed (META_LEDGER #54); GA-candidate |
+| **Iteration** | 23 |
+| **Session Seal** | `main` @ `b79f845` (PRs #13, #15, #16, #17, #18 merged; #11/#12/#14 closed) |
 
 ---
 
 ## File Tree (Current Reality)
 
-<!--
-This is the ACTUAL state of the project, not the planned state.
-Refreshed by /qor-substantiate after the first implementation cycle.
--->
-
 ```
 qortara-governance/
-|-- .agent/staging/
-|-- .qor/gates/
+|-- .github/workflows/        (ci.yml, security.yml, compliance.yml)
 |-- docs/
-|   |-- CONCEPT.md
-|   |-- ARCHITECTURE_PLAN.md
-|   |-- META_LEDGER.md
-|   |-- SYSTEM_STATE.md (this file)
-|   |-- SHADOW_GENOME.md
-|   |-- GOVERNANCE_INDEX.md
-|   |-- BACKLOG.md
-|   `-- FEATURE_INDEX.md
-|-- packages/
-|   `-- qortara-governance-langchain/
-|       |-- src/qortara_governance/   (callback, client, config, context,
-|       |                              decorators, exceptions, launcher, otel;
-|       |                              contract/, patches/)
-|       `-- tests/                     (contract/, patches/, unit suite)
-|-- pyproject.toml
-`-- README.md
+|   |-- CONCEPT.md  ARCHITECTURE_PLAN.md  META_LEDGER.md  SYSTEM_STATE.md
+|   |-- BACKLOG.md  FEATURE_INDEX.md  GOVERNANCE_INDEX.md  SHADOW_GENOME.md
+|   |-- ARCHITECTURE-BOUNDARIES.md  COMPATIBILITY.md  evidence-schema.md
+|   |-- adr/0001-agt-foundation-vendoring.md
+|   |-- architecture/AGT-COMPONENT-MAP.md
+|   |-- security/THREAT-MODEL.md
+|   |-- plan-qor-phase01..23-*.md     (sealed per-phase plans)
+|   |-- ideation-b5-*.md  research-brief-*.md
+|-- packages/qortara-governance-langchain/
+|   |-- src/qortara_governance/
+|   |   |-- __init__.py            (public API: init/init_agt, exceptions, evidence,
+|   |   |                           EvidenceSink/OTelEvidenceSink, collect_status, ...)
+|   |   |-- agt.py  agt_engine.py  (Microsoft AGT in-process decision source)
+|   |   |-- client.py             (SidecarClient: HTTP + circuit breaker)
+|   |   |-- decision_client.py    (DecisionClient Protocol — shared contract)
+|   |   |-- config.py  context.py  decorators.py  launcher.py  otel.py
+|   |   |-- exceptions.py         (frozen Beta exception + warning hierarchy)
+|   |   |-- protocol_version.py   (PROTOCOL_VERSION + compat gate)
+|   |   |-- evidence.py           (decision_evidence / execution_evidence builders)
+|   |   |-- evidence_sink.py      (EvidenceSink Protocol + OTelEvidenceSink + safe_emit)
+|   |   |-- doctor.py             (diagnostics CLI: python -m qortara_governance.doctor)
+|   |   |-- callback.py           (QortaraCallbackHandler — additive observability)
+|   |   |-- contract/             (FrameworkAdapter Protocol, AdapterState, conformance)
+|   |   `-- patches/              (registry, tool_patches[run/arun], langgraph_patches,
+|   |                              action_builder)
+|   |-- tests/                    (44 files: conformance/, patches/, unit + e2e)
+|   |-- pyproject.toml  README.md  CHANGELOG.md
+|-- pyproject.toml  README.md
 ```
 
 ---
 
 ## Metrics
 
-Reality metrics (LoC, function/file sizes, Section 4 counts) are measured by
-`/qor-substantiate` after the first governed implementation cycle. No governed
-cycle has run yet, so this snapshot reports BOOTSTRAP-phase reality only.
-
 | Metric | Value |
 |--------|-------|
-| Governed source files delivered this cycle | 0 (pre-implementation) |
-| Governed test files delivered this cycle | 0 (pre-implementation) |
-| Pre-existing package | `qortara-governance-langchain` (Alpha v0.2.x, ungoverned baseline) |
+| Source modules (`src/qortara_governance/`) | 25 |
+| Test files | 44 |
+| Test result | **180 passed / 2 skipped** (Python 3.11–3.13 + langchain-core 0.3 floor) |
+| Lint / type | `ruff` clean; `mypy` 0 issues / 25 files |
+| Runtime version | `0.2.1` (post-0.2.1 work is unreleased — Review Boundary held all tags) |
 
 ---
 
 ## Blueprint Compliance
 
-<!--
-Compare ARCHITECTURE_PLAN.md (Promise) vs actual files (Reality).
-Populated at first /qor-substantiate.
--->
+| Status | Notes |
+|--------|-------|
+| Reality == Promise | **VERIFIED** — each merge substantiated; #54 sealed-content re-hashes identically on `main` |
+| Unplanned files | none outside the governed plans |
+| Missing files | none |
 
-| Status | Planned | Actual | Notes |
-|--------|---------|--------|-------|
-| Delivered | 0 | 0 | No governed cycle has shipped yet |
-| Unplanned | 0 | 0 | — |
-| Missing | 0 | 0 | — |
-
-**Compliance Rate**: N/A (pre-implementation)
-
----
-
-## Dependency Manifest
-
-Approved dependencies are declared in `ARCHITECTURE_PLAN.md` (langchain-core,
-langgraph, opentelemetry, external sidecar). Installed-vs-approved reconciliation
-runs at `/qor-substantiate`.
+**Compliance Rate**: 100% (every sealed phase verified at merge).
 
 ---
 
 ## Section 4 Razor Compliance
 
-Not yet measured. The existing Alpha package is an ungoverned baseline; razor
-compliance is assessed when a governed `/qor-implement` cycle touches `src/`.
+Held throughout: the enforcement core stays small (single `run`/`arun` chokepoint shared with
+`ToolNode`); features reuse existing contracts (one `DecisionClient` Protocol, one `EvidenceSink`
+contract, the `PolicyMode` enum, stdlib `warnings`) rather than adding surface. No new runtime
+dependency was added across Phases 13–23.
 
 ---
 
 ## Test Coverage
 
-Coverage reconciliation runs at `/qor-substantiate`. The package ships an
-existing pytest suite under `packages/qortara-governance-langchain/tests/`
-(contract + patches + unit + conformance), green on Python 3.11–3.13 per CI (3.10 dropped, Phase 07, AGT floor).
+`uv run pytest` → **180 passed / 2 skipped**; also green against the `langchain-core>=0.3,<0.4` +
+`langgraph>=0.2,<0.3` floor via the CI `compat-floor` job. Coverage spans dispatch enforcement
+(allow/deny/approval/exempt, sync+async, run/arun/stream, ToolNode multi-tool), the adversarial
+fail-closed suite, OBSERVE shadow mode, ungoverned-dispatch signalling, opt-in evidence emission,
+the agent-runtime end-to-end path, init-time exceptions, and the doctor CLI.
 
 ---
 
-## Recent Changes
+## Recent Changes (Phases 11–23 summary)
 
-| File | Change Type | Notes |
-|------|-------------|-------|
-| src/qortara_governance/__init__.py | Modified | D1: `__version__` 0.2.0→0.2.1; B2 exports |
-| tests/test_version_consistency.py | Created | D1: runtime==metadata guard |
-| docs/security/THREAT-MODEL.md | Created | B4: 16-threat model + bypass model |
-| src/qortara_governance/protocol_version.py | Created | B2: PROTOCOL_VERSION + compat gate |
-| src/qortara_governance/exceptions.py | Modified | B2: frozen `__all__` + QortaraProtocolMismatch |
-| src/qortara_governance/client.py | Modified | B2: endpoints derive from PROTOCOL_VERSION |
-| tests/test_protocol_versioning.py | Created | B2: 4 behavioral tests |
-
-**Test Status (after Phase 09)**: `uv run --package qortara-governance-langchain pytest` → **79 passed, 2 skipped**; ruff clean; prose-lint clean; governance-health clean.
-
-**AGT pivot (Phases 07–09) superseded the S1/S2 sidecar scaffold:**
-
-| File | Change Type | Notes |
-|------|-------------|-------|
-| packages/qortara-governance-sidecar/** | **Deleted** (Phase 07) | from-scratch scaffold retired; AGT is the decision engine (ADR-0001) |
-| pyproject.toml (langchain) | Modified | Phase 07: depend on `agent-governance-toolkit-{core,protocols,integrations}`; Python floor 3.11 |
-| src/qortara_governance/agt.py | Created | Phase 07: AGT foundation probe |
-| src/qortara_governance/agt_engine.py | Created | Phase 08/09: `AgtDecisionClient` (in-process AGT decisions + arg-safety) + `init_agt()` |
-| src/qortara_governance/client.py / patches/tool_patches.py | Modified | Phase 09: `decide(request, tool_input)` threads args (AGT in-process; SidecarClient ignores — wire privacy) |
-| tests/conformance/{test_basetool_dispatch,test_agt_enforcement,test_agt_arg_safety}.py | Created | B1 + Phase 08/09 enforcement conformance |
+| Phase(s) | Theme |
+|----------|-------|
+| 11 | CI security + compliance gates (later hardened) |
+| 13 | Red-team CRITICAL set — fail-open/bypass closed (SEC-02/03/04/05/06) |
+| 14 | Ungoverned-dispatch signal (SEC-01) + real OBSERVE mode; dead config removed |
+| 15 | `run`/`arun` chokepoint (SEC-08) + honest binary-AGT / sidecar decision model (CAP-01) |
+| 16 | Defense-in-depth (no `__qortara_original__`; sentinel exempt) + blocking CI gates + pinned gitleaks |
+| 17 | Non-blocking async decisions + cleartext-credential warning |
+| 18 | `DecisionClient` Protocol + unified init guard + e2e-review remediation |
+| 19 | README hook-point truth + agent-path conformance + `QortaraConfigurationError` |
+| 20 | CI-verified compatibility matrix + evidence event schema (builders) |
+| 21 | Opt-in dispatch-path evidence emission (`EvidenceSink`) |
+| 22 | Live-agent end-to-end conformance + init-time `QortaraTimeout`/`QortaraAuthenticationError` |
+| 23 | `qortara-governance doctor` diagnostics CLI |
 
 ---
 
@@ -129,22 +116,26 @@ existing pytest suite under `packages/qortara-governance-langchain/tests/`
 
 | Indicator | Status | Details |
 |-----------|--------|---------|
-| Merkle Chain | VALID | Genesis hash verified at bootstrap |
-| Blueprint Sync | SYNCED | Plan just authored; no drift |
-| Section 4 Compliance | UNKNOWN | Measured at first substantiate |
-| Test Status | PASS | CI green on existing package suite |
+| Merkle Chain | VALID | Entries #1–#54; chain links re-verified at each merge |
+| Blueprint Sync | SYNCED | Reality == Promise verified post-merge |
+| Section 4 Compliance | PASS | No bloat; reused contracts; no new runtime dep |
+| Test Status | PASS | 180 passed / 2 skipped; all CI checks green |
 
 ---
 
 ## Next Actions
 
-Based on current state:
+Beta-relevant backlog is complete; remaining are standing follow-ups (none Beta-blocking):
 
-- [ ] Reconcile `qortara_protocol` ↔ `agent-governance-toolkit-protocols`
-- [ ] Cleanup cycle: retire/relegate the optional sidecar `client.py` / `launcher.py` (remote-daemon only)
-- [ ] Wire LangGraph `ToolNode` patch into AGT (BaseTool done)
+- [ ] ToolNode per-tool execution evidence (node runs tools internally — deeper hook).
+- [ ] `require_compatible_protocol` init-wiring (blocked: needs a sidecar health-version field).
+- [ ] Circuit-breaker half-open probing; `timed_out` execution result.
+- [ ] `QortaraPolicyInvalid` / `QortaraDecisionMalformed` (no raise site under deny-closed).
+
+**Declined (maintainer):** W1 sibling adapters, W2 hosted Cloud preview — the SDK stays a single
+LangChain/LangGraph package.
 
 ---
 
-*State snapshot updated by Qor-logic A.E.G.I.S.*
-*Run `/qor-status` for live diagnostic.*
+*State snapshot updated by Qor-logic A.E.G.I.S. Run `python -m qortara_governance.doctor` for live
+governance state.*

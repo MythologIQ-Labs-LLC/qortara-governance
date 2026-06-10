@@ -224,11 +224,12 @@ The current test suite includes a regression test for the AGT issue #73 wrapper-
 
 Tracked in [open issues](https://github.com/MythologIQ-Labs-LLC/qortara-governance/issues):
 
-- Compatibility tracking against incoming LangChain 0.4 / 0.5 releases
+- Compatibility tracking against incoming LangChain releases (CI-verified floor + latest)
 - Additional examples (RAG retrieval governance, multi-agent supervisor with policy escalation)
-- Sibling packages for CrewAI, LlamaIndex, AutoGen (separate adapter packages under the same workspace)
 - LangSmith metadata integration so governance decisions surface in trace UIs
 - v1.0 stabilization once the public API surface stops shifting
+
+Scope is the LangChain/LangGraph adapter only — sibling-framework adapters and a hosted-cloud preview are out of scope.
 
 ## Security
 
