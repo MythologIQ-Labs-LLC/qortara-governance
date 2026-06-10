@@ -23,8 +23,8 @@
 
 ## Wishlist (Nice to Have)
 <!-- Format: - [ ] [W#] Description -->
-- [ ] [W1] CrewAI / LlamaIndex / AutoGen sibling adapters — each its own `packages/qortara-governance-<framework>/` reusing the framework-agnostic core (DecisionClient / EvidenceSink / FrameworkAdapter / evidence / exceptions); per-framework `/qor-research` of the tool-dispatch funnel + a conformance suite. Recommended order: CrewAI → LlamaIndex → AutoGen. (Post-Beta.)
-- [ ] [W2] Hosted Qortara Cloud policy/approval preview — proprietary hosted decision plane (see ARCHITECTURE-BOUNDARIES); open side already wires `init()` + sidecar + `require_approval`→`QortaraApprovalRequired`. Blocked on the hosted service. (Post-Beta.)
+- [-] [W1] CrewAI / LlamaIndex / AutoGen sibling adapters. **DECLINED (maintainer, 2026-06-09):** "avoid adding the complexity of new sibling adapters." The package stays LangChain/LangGraph-only. (The framework-agnostic core — `DecisionClient`/`EvidenceSink`/`FrameworkAdapter` — would support per-framework `packages/qortara-governance-<framework>/` if this is ever revisited.)
+- [-] [W2] Hosted Qortara Cloud policy/approval preview. **DECLINED (maintainer, 2026-06-09):** "no hosted cloud preview." The hosted decision plane is out of scope for the open repo (see ARCHITECTURE-BOUNDARIES); the open side already wires `init()` + sidecar + `require_approval`→`QortaraApprovalRequired`.
 - [x] [W3] `qortara-governance doctor` diagnostics CLI. **DONE (Phase 23):** `python -m qortara_governance.doctor [--json]` reports patch state, decision client, enforce/observe, evidence sink, AgentContext, and warns on the silent traps (no context, observe, no sink, plaintext-credential transport). Read-only; never prints the tenant_key value; exit 0 if active else 1. `qortara_governance.collect_status()` / `GovernanceStatus` for programmatic use. Registry gained read-only `get_observe()`/`get_evidence_sink()` accessors (no enforcement change).
 
 ---

@@ -1,6 +1,6 @@
 # Governance Index
 
-**Last Reviewed**: 2026-06-09 (Phase 20: compatibility matrix + evidence schema registered)
+**Last Reviewed**: 2026-06-10 (Phase 23 / governance-doc validation: SYSTEM_STATE, FEATURE_INDEX, CHANGELOG re-synced to ledger #54)
 
 A single authoritative map of every governance artifact in this project, organized
 into six freshness tiers with explicit drift contracts. A stale entry here is
@@ -51,7 +51,7 @@ Live for plan duration; archived at substantiate. Drift signal: plan shipped but
 
 | Artifact | Path | Plan |
 |----------|------|------|
-| _none yet_ | — | — |
+| Sealed per-phase plans | `docs/plan-qor-phase01..23-*.md` | one per sealed phase (historical; their ledger SEAL entry is canonical) |
 
 ## Tier 5 — Reference Material
 
@@ -61,6 +61,9 @@ Informational, slow-drift. Drift signal: factual claims diverge from current cod
 |----------|------|
 | Compatibility Matrix (CI-tested) | `docs/COMPATIBILITY.md` |
 | AxonFlow comparative research | `docs/research-brief-axonflow-2026-06-09.md` |
+| Deep-audit red-team brief | `docs/research-brief-deep-audit-redteam-2026-06-09.md` |
+| Docs-alignment research brief | `docs/research-brief-docs-alignment-2026-06-09.md` |
+| B5 dispatch-evidence ideation + research | `docs/ideation-b5-dispatch-evidence-emission.md`, `docs/research-brief-b5-dispatch-evidence-emission-2026-06-09.md` |
 
 ## Tier 6 — Archived
 

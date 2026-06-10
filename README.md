@@ -36,7 +36,7 @@ See [`docs/ARCHITECTURE-BOUNDARIES.md`](docs/ARCHITECTURE-BOUNDARIES.md) for the
 |---|---|---|---|
 | [`qortara-governance-langchain`](packages/qortara-governance-langchain) | Alpha (v0.2.x) | [![PyPI](https://img.shields.io/pypi/v/qortara-governance-langchain.svg)](https://pypi.org/project/qortara-governance-langchain/) | LangChain + LangGraph adapter |
 
-Sibling packages for CrewAI, LlamaIndex, and AutoGen are planned as additional `packages/*` members under the same workspace. See [open issues](https://github.com/MythologIQ-Labs-LLC/qortara-governance/issues) tagged `help wanted`.
+The monorepo is structured so framework-specific adapters could live as additional `packages/*` members reusing the framework-agnostic core, but the current scope is the LangChain/LangGraph adapter only.
 
 ## Quickstart
 

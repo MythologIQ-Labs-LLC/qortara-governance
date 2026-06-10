@@ -1,5 +1,39 @@
 # Changelog — qortara-governance-langchain
 
+## [Unreleased]
+
+Governed work since the 0.2.1 restructure (no release tag yet — held at the Review Boundary).
+Version remains `0.2.1`; this section accumulates the changes that a later release will stamp.
+
+### Added
+
+- **In-process enforcement via Microsoft AGT.** `init_agt(agent_id, allowed_tools, ...)` installs the dispatch patch with an AGT `PolicyEngine` decision source — local enforcement, no sidecar required (ADR-0001). `capability_aliases` routes custom tool names into AGT's argument-level (SQL/code/path) checks.
+- **`policy_mode="observe"`** shadow/dry-run mode (evaluate policy + log would-be blocks at WARNING, never raise) on `init()` / `init_agt()`.
+- **Opt-in evidence emission** from the dispatch path: pass `evidence_sink=` to `init()`/`init_agt()`. Emits a *decision* event on a terminal deny and an *execution* event (`executed`/`errored` + duration) after each permitted run. New `EvidenceSink` protocol + built-in `OTelEvidenceSink`; `decision_evidence`/`execution_evidence` builders. Best-effort — never raises into the caller, never weakens fail-closed; default (no sink) leaves the hot path unchanged.
+- **`qortara-governance doctor`** diagnostics CLI: `python -m qortara_governance.doctor [--json]` + `collect_status()`/`GovernanceStatus` — reports patch state, decision client, enforce/observe, evidence sink, context, and warns on silent "looks-governed-but-isn't" traps.
+- **`DecisionClient` Protocol** shared by `SidecarClient` and `AgtDecisionClient`.
+- New public exceptions `QortaraConfigurationError`, `QortaraTimeout`, `QortaraAuthenticationError`; new warning categories `QortaraUngovernedDispatchWarning`, `QortaraInsecureTransportWarning`.
+- CI-verified compatibility matrix (`docs/COMPATIBILITY.md` + a `compat-floor` CI job exercising the `langchain-core>=0.3,<0.4` + `langgraph>=0.2,<0.3` floor).
+
+### Changed
+
+- **Dispatch hook moved from `BaseTool.invoke`/`.ainvoke` to `BaseTool.run`/`.arun`** — the funnel `invoke`/`ainvoke`/`stream` all pass through, and a direct `tool.run(...)` call is now governed too (closes a residual bypass). `ToolNode.ainvoke` is patched alongside `.invoke`.
+- A dispatch with **no `AgentContext`** now emits `QortaraUngovernedDispatchWarning` instead of silently skipping; escalate the category to an error to fail closed.
+- `SidecarClient.require_reachable()` distinguishes **auth (401/403)** and **timeout** from a generic unreachable failure; a 4xx decision response denies with a distinct rationale.
+- Async dispatch runs blocking decisions and evidence emission **off the event loop** (`asyncio.to_thread`).
+- Decision model documented honestly: the in-process AGT engine is **binary allow/deny**; `require_approval` + transform kinds come from the sidecar/hosted plane.
+- Removed the unimplemented `offline_policy_path` / `QORTARA_OFFLINE_POLICY` config (the air-gapped path is `init_agt`, in-process).
+
+### Security
+
+- Closed the red-team fail-open/bypass set: non-DENY verdicts (DOWNGRADE/REDACT/SANDBOX/unknown) now **deny-closed**; malformed 2xx bodies and AGT engine errors **deny-closed** (the breaker counts malformed responses).
+- Removed the `__qortara_original__` "restore-me" handle from the wrappers; `@qortara_exempt` now uses an identity sentinel so a stray/injected truthy attribute no longer exempts.
+- CI security gates (bandit, pip-audit) are **blocking**; the gitleaks tarball is pinned by SHA256; least-privilege workflow permissions; a `tenant_key`-over-plaintext-http warning.
+
+### Out of scope
+
+- Sibling-framework adapters (CrewAI / LlamaIndex / AutoGen) and a hosted-cloud preview — declined; the package stays LangChain/LangGraph-only.
+
 ## v0.2.1 — 2026-05-04
 
 ### Changed
