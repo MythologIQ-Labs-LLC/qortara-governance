@@ -16,8 +16,10 @@ import httpx
 from pydantic import ValidationError
 
 from qortara_governance.exceptions import (
+    QortaraAuthenticationError,
     QortaraInsecureTransportWarning,
     QortaraSidecarUnavailable,
+    QortaraTimeout,
 )
 from qortara_governance.protocol_version import PROTOCOL_VERSION
 from qortara_protocol import ActionDecision, ActionRequest, DecisionKind, EvidenceRecord
@@ -169,6 +171,32 @@ class SidecarClient:
             return False
 
     def require_reachable(self) -> None:
-        """Raise QortaraSidecarUnavailable if health check fails."""
-        if not self.health():
-            raise QortaraSidecarUnavailable(f"sidecar at {self._endpoint} unreachable")
+        """Verify the sidecar is reachable and the credential is accepted.
+
+        Raises:
+          QortaraAuthenticationError — sidecar returned 401/403 (credential rejected;
+            the sidecar IS reachable). Fail-fast on a misconfigured tenant_key.
+          QortaraTimeout — the health probe timed out.
+          QortaraSidecarUnavailable — connection error or other non-2xx response.
+        """
+        try:
+            resp = self._client.get(f"/{PROTOCOL_VERSION}/health")
+        except httpx.TimeoutException as exc:  # subclass of RequestError — check first
+            raise QortaraTimeout(
+                f"sidecar at {self._endpoint} timed out during health check"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise QortaraSidecarUnavailable(
+                f"sidecar at {self._endpoint} unreachable"
+            ) from exc
+        if resp.status_code in (401, 403):
+            raise QortaraAuthenticationError(
+                f"sidecar at {self._endpoint} rejected the credential "
+                f"(HTTP {resp.status_code})"
+            )
+        if not (200 <= resp.status_code < 300):
+            raise QortaraSidecarUnavailable(
+                f"sidecar at {self._endpoint} health check failed "
+                f"(HTTP {resp.status_code})"
+            )
+        self._record_success()

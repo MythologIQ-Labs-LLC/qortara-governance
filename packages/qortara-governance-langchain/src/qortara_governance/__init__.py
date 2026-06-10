@@ -24,12 +24,14 @@ from qortara_governance.evidence import decision_evidence, execution_evidence
 from qortara_governance.evidence_sink import EvidenceSink, OTelEvidenceSink
 from qortara_governance.exceptions import (
     QortaraApprovalRequired,
+    QortaraAuthenticationError,
     QortaraConfigurationError,
     QortaraError,
     QortaraInsecureTransportWarning,
     QortaraPolicyDenied,
     QortaraProtocolMismatch,
     QortaraSidecarUnavailable,
+    QortaraTimeout,
     QortaraUngovernedDispatchWarning,
 )
 from qortara_governance.launcher import launch
@@ -51,6 +53,7 @@ __all__ = [
     "OTelEvidenceSink",
     "PolicyMode",
     "QortaraApprovalRequired",
+    "QortaraAuthenticationError",
     "QortaraCallbackHandler",
     "QortaraConfigurationError",
     "QortaraError",
@@ -58,6 +61,7 @@ __all__ = [
     "QortaraPolicyDenied",
     "QortaraProtocolMismatch",
     "QortaraSidecarUnavailable",
+    "QortaraTimeout",
     "QortaraUngovernedDispatchWarning",
     "contract",
     "decision_evidence",

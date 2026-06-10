@@ -16,6 +16,8 @@ __all__ = [
     "QortaraPolicyDenied",
     "QortaraApprovalRequired",
     "QortaraSidecarUnavailable",
+    "QortaraTimeout",
+    "QortaraAuthenticationError",
     "QortaraProtocolMismatch",
     "QortaraUngovernedDispatchWarning",
     "QortaraInsecureTransportWarning",
@@ -60,6 +62,21 @@ class QortaraApprovalRequired(QortaraError):
 
 class QortaraSidecarUnavailable(QortaraError):
     """Sidecar unreachable and circuit breaker has tripped."""
+
+
+class QortaraTimeout(QortaraSidecarUnavailable):
+    """A sidecar request timed out. Subclasses QortaraSidecarUnavailable so existing
+    ``except QortaraSidecarUnavailable`` handlers still catch it; new code can
+    distinguish a timeout from a hard-unreachable failure."""
+
+
+class QortaraAuthenticationError(QortaraError):
+    """The sidecar rejected the credential (HTTP 401/403) at init-time.
+
+    Raised by ``require_reachable()`` so a misconfigured ``tenant_key`` fails fast
+    with a clear cause rather than a generic "unreachable" — the sidecar IS
+    reachable, it refused the credential.
+    """
 
 
 class QortaraProtocolMismatch(QortaraError):

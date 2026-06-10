@@ -1093,3 +1093,47 @@ SHA256(content_hash + previous_hash) = bec8ea2d60e8f381f5d41c5c5ffc9767d4da48d04
 ---
 *Chain integrity: VALID*
 *B5 complete (ideation→research→plan→implement, all in one governed thread, committed together). Standing residuals + post-Beta follow-ups (ToolNode execution evidence, approval/transform events, timed_out) unchanged.*
+
+---
+
+### Entry #51: GATE TRIBUNAL — Phase 22 (agent e2e + init-time exceptions plan)
+
+**Timestamp**: 2026-06-09T23:55:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase22-agent-e2e-exceptions.md) = 5e3cffd8670ce3f89331662dac83f6c236dc5c3253d25d3219284c01fbe48960
+
+**Previous Hash**: 9790e6e49ea03e7c4f012c1e7a4dd084d4e90b753cbbce589a72c9db565c677c
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = e11f668f8b0a01bd8e21c31d4ec9709e025d0b9c70e1087f8539d58436ee4dc7
+
+**Decision**: Plan to close B1-followup (live-agent end-to-end conformance via `create_react_agent` + a deterministic fake tool-calling model — verified available, no `langchain` dep) + B2-followup (init-time `QortaraTimeout`/`QortaraAuthenticationError` at `require_reachable`; `PolicyInvalid`/`DecisionMalformed` won't-fix — dispatch is fail-closed, no Beta raise site) cleared all binding passes. B2 makes init errors more specific AND more secure (fail-fast on a rejected credential); generic connection case unchanged (regression-tested); `QortaraTimeout` subclasses `QortaraSidecarUnavailable` for back-compat. No new dep, no enforcement-path change. Cleared for /qor-implement.
+
+---
+
+### Entry #52: SEAL — Phase 22 (live-agent e2e conformance + init-time exceptions)
+
+**Timestamp**: 2026-06-10T00:10:00Z
+**Phase**: SEAL (substantiate, local — commit+push to a new PR)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(exceptions + client + __init__) = 818658d508710f199c9bf35e098d94812273786b5818a6110fbc5a77d69be7cd
+
+**Previous Hash**: 5e3cffd8670ce3f89331662dac83f6c236dc5c3253d25d3219284c01fbe48960
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 2a30e8afd32861d4f6bc44bd6bd2dc44cd0182b312531c4cbbd525ca94a64e11
+
+**Decision**: Reality == Promise. **B1-followup DONE** — `test_agent_runtime_governed.py` drives a real `create_react_agent` graph with a deterministic fake tool-calling model; the denied tool is blocked before its body runs (`QortaraPolicyDenied` in the exception chain), proving the agent runtime is governed end-to-end (no `langchain` dep; `create_react_agent` ≡ the `create_agent` successor on the same `ToolNode`/`run` dispatch). **B2-followup DONE** — `QortaraTimeout(QortaraSidecarUnavailable)` + `QortaraAuthenticationError(QortaraError)` added (frozen `__all__` + export); `require_reachable` distinguishes 401/403→auth, timeout→timeout, else→unavailable (generic case regression-tested). `PolicyInvalid`/`DecisionMalformed` won't-fix (dispatch fail-closed; no Beta raise site — avoided speculative dead classes). 8 new tests; full suite **173 passed / 2 skipped** on latest AND the 0.3 floor; ruff + mypy(0/24) clean. BACKLOG B1-followup + B2-followup → done. No new dep, no enforcement-path change.
+
+---
+*Chain integrity: VALID*
+*B1-followup + B2-followup closed. Beta-blocking backlog cleared; remaining is post-Beta wishlist (W1–W3) + standing follow-ups (ToolNode execution evidence, approval/transform events, timed_out, breaker half-open, require_compatible_protocol wiring, PolicyInvalid/DecisionMalformed).*
