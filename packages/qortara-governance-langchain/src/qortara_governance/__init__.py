@@ -21,6 +21,7 @@ from qortara_governance.config import Config, PolicyMode, load_config
 from qortara_governance.context import AgentContext, get_context, set_context
 from qortara_governance.decorators import is_exempt, qortara_exempt
 from qortara_governance.evidence import decision_evidence, execution_evidence
+from qortara_governance.evidence_sink import EvidenceSink, OTelEvidenceSink
 from qortara_governance.exceptions import (
     QortaraApprovalRequired,
     QortaraConfigurationError,
@@ -46,6 +47,8 @@ __all__ = [
     "AgtDecisionClient",
     "AgtPolicyAdapter",
     "Config",
+    "EvidenceSink",
+    "OTelEvidenceSink",
     "PolicyMode",
     "QortaraApprovalRequired",
     "QortaraCallbackHandler",
@@ -103,6 +106,7 @@ def init(
     tenant_key: str | None = None,
     sidecar_endpoint: str | None = None,
     policy_mode: str | PolicyMode | None = None,
+    evidence_sink: EvidenceSink | None = None,
 ) -> None:
     """Initialize Qortara Governance for this process.
 
@@ -112,12 +116,15 @@ def init(
     `policy_mode` defaults to `enforce` (deny decisions raise). `observe` is a
     shadow/dry-run mode: policy is still evaluated and every would-be block is
     logged at WARNING via the `qortara_governance` logger, but nothing is raised.
+    `evidence_sink` (opt-in) receives decision/execution evidence from the dispatch
+    path; the default (None) emits nothing and leaves the hot path unchanged. The
+    sink is not part of the re-init fingerprint.
 
     On first call:
     - Resolves config (env > kwarg > default)
     - Launches sidecar subprocess (if no QORTARA_SIDECAR_ENDPOINT)
     - Verifies sidecar reachability
-    - Installs BaseTool.invoke / ToolNode.invoke patches
+    - Installs BaseTool.run / ToolNode.invoke patches
     """
     global _FINGERPRINT
 
@@ -139,7 +146,9 @@ def init(
     launch_result = launch(existing_endpoint=config.sidecar_endpoint)
     client = SidecarClient(launch_result.endpoint, config.tenant_key)
     client.require_reachable()
-    apply_patches(client, observe=_is_observe(config.policy_mode))
+    apply_patches(
+        client, observe=_is_observe(config.policy_mode), evidence_sink=evidence_sink
+    )
     _FINGERPRINT = new_fp
 
 
@@ -149,6 +158,7 @@ def init_agt(
     *,
     capability_aliases: dict[str, str] | None = None,
     policy_mode: str | PolicyMode = PolicyMode.ENFORCE,
+    evidence_sink: EvidenceSink | None = None,
 ) -> AgtPolicyAdapter:
     """Initialize in-process enforcement backed by Microsoft AGT (ADR-0001).
 
@@ -192,7 +202,11 @@ def init_agt(
     )
     # AgtDecisionClient structurally satisfies DecisionClient (the patch layer's
     # contract), so no cast is needed.
-    apply_patches(AgtDecisionClient(adapter), observe=_is_observe(mode))
+    apply_patches(
+        AgtDecisionClient(adapter),
+        observe=_is_observe(mode),
+        evidence_sink=evidence_sink,
+    )
     _FINGERPRINT = new_fp
     _AGT_ADAPTER = adapter
     return adapter

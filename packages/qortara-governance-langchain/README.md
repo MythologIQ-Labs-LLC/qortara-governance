@@ -154,6 +154,15 @@ Resolution order: `init()` kwarg → env var → default.
 
 > Air-gapped / offline policy evaluation is provided by `init_agt(...)` (in-process AGT), not a config flag.
 
+### Evidence emission (opt-in)
+
+Pass `evidence_sink=` to `init()` / `init_agt()` to receive an audit trail from the dispatch path — a **decision event** on each terminal deny and an **execution event** (`executed`/`errored` + duration) after each permitted run. The default (no sink) emits nothing and leaves the hot path unchanged. Emission is best-effort and never weakens enforcement. Built-in `OTelEvidenceSink`; any object with `submit_evidence(list[EvidenceRecord])` works (a `SidecarClient` is its own sink). Full contract: [`docs/evidence-schema.md`](../../docs/evidence-schema.md).
+
+```python
+from qortara_governance import OTelEvidenceSink
+qortara_governance.init_agt("my-agent", ["lookup"], evidence_sink=OTelEvidenceSink())
+```
+
 ### Ungoverned dispatch (no agent context)
 
 Once `init()`/`init_agt()` patch the tool-dispatch methods, a dispatch off a code path that never set an `AgentContext` runs **ungoverned** (policy cannot evaluate it). The SDK emits a `QortaraUngovernedDispatchWarning` on each such call rather than failing closed by default, because the patched methods are process-global and some non-agent call paths legitimately run uncontextualized. To make ungoverned dispatch fail closed, escalate the category to an error:

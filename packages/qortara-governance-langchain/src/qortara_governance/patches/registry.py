@@ -18,6 +18,7 @@ from typing import Sequence
 
 from qortara_governance.contract.protocol import FrameworkAdapter
 from qortara_governance.decision_client import DecisionClient
+from qortara_governance.evidence_sink import EvidenceSink
 from qortara_governance.contract.state import (
     CONTRACT_VERSION,
     AdapterState,
@@ -25,16 +26,21 @@ from qortara_governance.contract.state import (
 )
 
 
-def _default_adapters(observe: bool = False) -> list[FrameworkAdapter]:
+def _default_adapters(
+    observe: bool = False, evidence_sink: EvidenceSink | None = None
+) -> list[FrameworkAdapter]:
     """Return the default adapter list shipped with this SDK.
 
-    `observe` (policy_mode=observe) is baked into each adapter so its dispatch
-    wrappers log would-be blocks instead of raising (shadow/dry-run mode).
+    `observe` (policy_mode=observe) and `evidence_sink` (opt-in evidence emission)
+    are baked into each adapter so its dispatch wrappers behave consistently.
     """
     from qortara_governance.patches.langgraph_patches import LangGraphToolNodeAdapter
     from qortara_governance.patches.tool_patches import LangChainToolAdapter
 
-    return [LangChainToolAdapter(observe), LangGraphToolNodeAdapter(observe)]
+    return [
+        LangChainToolAdapter(observe, evidence_sink),
+        LangGraphToolNodeAdapter(observe, evidence_sink),
+    ]
 
 
 class AdapterRegistry:
@@ -113,11 +119,17 @@ _REGISTRY = AdapterRegistry()
 _PATCH_LOCK = threading.Lock()
 
 
-def apply_patches(client: DecisionClient, *, observe: bool = False) -> None:
+def apply_patches(
+    client: DecisionClient,
+    *,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
+) -> None:
     """Install the default adapter set. Idempotent per identical client.
 
     `observe=True` (policy_mode=observe) installs shadow-mode wrappers that log
-    would-be policy blocks instead of raising. Default is enforce.
+    would-be policy blocks instead of raising. `evidence_sink` (opt-in) receives
+    decision/execution evidence from the dispatch path; None = no emission.
     """
     with _PATCH_LOCK:
         if _REGISTRY.is_installed():
@@ -127,7 +139,7 @@ def apply_patches(client: DecisionClient, *, observe: bool = False) -> None:
                 "Qortara patches already installed with a different client. "
                 "Call qortara_governance.unpatch_all() first."
             )
-        _REGISTRY.apply(client, _default_adapters(observe))
+        _REGISTRY.apply(client, _default_adapters(observe, evidence_sink))
 
 
 def unpatch_all() -> None:

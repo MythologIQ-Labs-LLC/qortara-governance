@@ -24,23 +24,32 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import warnings
 from types import MappingProxyType
 from typing import Any, Callable
 
 from qortara_governance.context import get_context
-from qortara_governance.decision_client import DecisionClient
 from qortara_governance.contract.state import CONTRACT_VERSION, AdapterState
+from qortara_governance.decision_client import DecisionClient
 from qortara_governance.decorators import is_exempt
+from qortara_governance.evidence import decision_evidence, execution_evidence
+from qortara_governance.evidence_sink import EvidenceSink, safe_emit
 from qortara_governance.exceptions import (
     QortaraApprovalRequired,
     QortaraPolicyDenied,
     QortaraUngovernedDispatchWarning,
 )
 from qortara_governance.patches.action_builder import build_tool_action
-from qortara_protocol import ActionDecision, DecisionKind
+from qortara_protocol import (
+    ActionDecision,
+    ActionRequest,
+    DecisionKind,
+    ExecutionResult,
+)
 
 _OriginalMethod = Callable[..., Any]
+_DecisionPair = tuple[ActionRequest, ActionDecision]
 
 _log = logging.getLogger("qortara_governance")
 
@@ -112,18 +121,37 @@ def enforce_decision(decision: ActionDecision, *, observe: bool = False) -> None
 
 
 def _decide_or_raise(
-    tool: object, tool_input: Any, client: DecisionClient, observe: bool = False
-) -> None:
-    """Request a decision; permit only ALLOW/EXEMPT/OBSERVE, else fail closed."""
+    tool: object,
+    tool_input: Any,
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
+) -> _DecisionPair | None:
+    """Request a decision; permit only ALLOW/EXEMPT/OBSERVE, else fail closed.
+
+    Returns (request, decision) on the permit path so the caller can emit an
+    execution event after the run; returns None when enforcement is skipped
+    (exempt / no context). On a terminal DENY, emits a decision event (best-effort)
+    before raising. Evidence is emitted only when `evidence_sink` is set.
+    """
     if is_exempt(tool):
-        return
+        return None
     tool_name = getattr(tool, "name", type(tool).__name__)
     ctx = get_context()
     if ctx is None:
         warn_missing_context(tool_name)
-        return
+        return None
     request = build_tool_action(tool_name, tool_input, ctx)
-    enforce_decision(client.decide(request, tool_input), observe=observe)
+    decision = client.decide(request, tool_input)
+    if (
+        evidence_sink is not None
+        and not observe
+        and decision.decision_kind == DecisionKind.DENY
+    ):
+        # Terminal block — emit a decision event before enforce_decision raises.
+        safe_emit(evidence_sink, decision_evidence(request, decision))
+    enforce_decision(decision, observe=observe)
+    return (request, decision)
 
 
 def _tool_input_of(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
@@ -131,12 +159,52 @@ def _tool_input_of(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
     return args[0] if args else kwargs.get("tool_input")
 
 
+def _run_and_emit(
+    pair: _DecisionPair | None,
+    evidence_sink: EvidenceSink | None,
+    run: Callable[[], Any],
+) -> Any:
+    """Run `run()`; if a sink + permit pair exist, emit an execution event
+    (executed/errored + duration). Best-effort emit; the tool result/exception
+    is always propagated unchanged."""
+    if evidence_sink is None or pair is None:
+        return run()
+    request, decision = pair
+    start = time.perf_counter()
+    try:
+        result = run()
+    except Exception:
+        dur = int((time.perf_counter() - start) * 1000)
+        safe_emit(
+            evidence_sink,
+            execution_evidence(
+                request, decision, ExecutionResult.ERRORED, duration_ms=dur
+            ),
+        )
+        raise
+    dur = int((time.perf_counter() - start) * 1000)
+    safe_emit(
+        evidence_sink,
+        execution_evidence(
+            request, decision, ExecutionResult.EXECUTED, duration_ms=dur
+        ),
+    )
+    return result
+
+
 def _make_sync_wrapper(
-    original: _OriginalMethod, client: DecisionClient, observe: bool = False
+    original: _OriginalMethod,
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
 ) -> _OriginalMethod:
     def wrapper(self: object, *args: Any, **kwargs: Any) -> Any:
-        _decide_or_raise(self, _tool_input_of(args, kwargs), client, observe)
-        return original(self, *args, **kwargs)
+        pair = _decide_or_raise(
+            self, _tool_input_of(args, kwargs), client, observe, evidence_sink
+        )
+        return _run_and_emit(
+            pair, evidence_sink, lambda: original(self, *args, **kwargs)
+        )
 
     wrapper.__qualname__ = original.__qualname__
     wrapper.__qortara_wrapped__ = True  # type: ignore[attr-defined]
@@ -146,7 +214,10 @@ def _make_sync_wrapper(
 
 
 def _make_async_wrapper(
-    original: _OriginalMethod, client: DecisionClient, observe: bool = False
+    original: _OriginalMethod,
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
 ) -> _OriginalMethod:
     async def wrapper(self: object, *args: Any, **kwargs: Any) -> Any:
         tool_input = _tool_input_of(args, kwargs)
@@ -154,10 +225,37 @@ def _make_async_wrapper(
             # Sidecar (blocking httpx) — run off the event loop so the decision
             # doesn't stall the loop. asyncio.to_thread propagates contextvars,
             # so get_context() still resolves in the worker thread.
-            await asyncio.to_thread(_decide_or_raise, self, tool_input, client, observe)
+            pair = await asyncio.to_thread(
+                _decide_or_raise, self, tool_input, client, observe, evidence_sink
+            )
         else:
-            _decide_or_raise(self, tool_input, client, observe)
-        return await original(self, *args, **kwargs)
+            pair = _decide_or_raise(self, tool_input, client, observe, evidence_sink)
+        if evidence_sink is None or pair is None:
+            return await original(self, *args, **kwargs)
+        request, decision = pair
+        start = time.perf_counter()
+        try:
+            result = await original(self, *args, **kwargs)
+        except Exception:
+            dur = int((time.perf_counter() - start) * 1000)
+            # Emit off the event loop — the sink may do blocking IO.
+            await asyncio.to_thread(
+                safe_emit,
+                evidence_sink,
+                execution_evidence(
+                    request, decision, ExecutionResult.ERRORED, duration_ms=dur
+                ),
+            )
+            raise
+        dur = int((time.perf_counter() - start) * 1000)
+        await asyncio.to_thread(
+            safe_emit,
+            evidence_sink,
+            execution_evidence(
+                request, decision, ExecutionResult.EXECUTED, duration_ms=dur
+            ),
+        )
+        return result
 
     wrapper.__qualname__ = original.__qualname__
     wrapper.__qortara_wrapped__ = True  # type: ignore[attr-defined]
@@ -166,11 +264,16 @@ def _make_async_wrapper(
     return wrapper
 
 
-def apply(client: DecisionClient, observe: bool = False) -> dict[str, _OriginalMethod]:
+def apply(
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
+) -> dict[str, _OriginalMethod]:
     """Install BaseTool.run/arun patches (the dispatch funnel). Returns originals.
 
     invoke()/ainvoke() reach policy *through* run/arun, and a direct run/arun call
     is governed too (GAP-SEC-08). One decision per dispatch — no double-enforcement.
+    `evidence_sink` (opt-in) receives decision/execution evidence; None = no emission.
     """
     from langchain_core.tools import BaseTool
 
@@ -190,8 +293,8 @@ def apply(client: DecisionClient, observe: bool = False) -> dict[str, _OriginalM
         "run": BaseTool.run,
         "arun": BaseTool.arun,
     }
-    BaseTool.run = _make_sync_wrapper(BaseTool.run, client, observe)  # type: ignore[method-assign]
-    BaseTool.arun = _make_async_wrapper(BaseTool.arun, client, observe)  # type: ignore[method-assign]
+    BaseTool.run = _make_sync_wrapper(BaseTool.run, client, observe, evidence_sink)  # type: ignore[method-assign]
+    BaseTool.arun = _make_async_wrapper(BaseTool.arun, client, observe, evidence_sink)  # type: ignore[method-assign]
     return originals
 
 
@@ -210,12 +313,15 @@ class LangChainToolAdapter:
     framework_module: str = "langchain_core.tools"
     contract_version: str = CONTRACT_VERSION
 
-    def __init__(self, observe: bool = False) -> None:
+    def __init__(
+        self, observe: bool = False, evidence_sink: EvidenceSink | None = None
+    ) -> None:
         self._observe = observe
+        self._evidence_sink = evidence_sink
 
     def apply(self, client: DecisionClient) -> AdapterState:
         """Install patches and return an AdapterState snapshot of the originals."""
-        originals = apply(client, self._observe)
+        originals = apply(client, self._observe, self._evidence_sink)
         return AdapterState(
             adapter_name=self.name,
             originals=MappingProxyType(dict(originals)),

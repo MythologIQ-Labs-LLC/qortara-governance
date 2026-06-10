@@ -1026,3 +1026,70 @@ SHA256(content_hash + previous_hash) = 870bbf9fded11a5bf636a9d0b56c5328183b56c5b
 ---
 *Chain integrity: VALID*
 *Phase 20 stacked on the Phase 19 branch (PR #14). B3 closed; B5 defined (emission deferred). Standing residuals + post-Beta items unchanged.*
+
+---
+
+### Entry #48: RESEARCH BRIEF — B5 dispatch-path evidence emission
+
+**Timestamp**: 2026-06-09T22:30:00Z
+**Phase**: RESEARCH
+**Author**: Analyst
+**Risk Grade**: L3 (advisory — no code, no Review Boundary mutation)
+
+**Content Hash**:
+SHA256(research-brief-b5-dispatch-evidence-emission-2026-06-09.md) = 2171c829f4b7b95e3a3fc21cf44a1647df6d423e78a621da7dfa03b810dc07c1
+
+**Previous Hash**: 3ec9793acf97b35a34e54fbdc83e19e46440615b0b143e4e07d67f3e0280cdd7
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = 3f9227097a2efd458f3df705fe5592bd35e7f1357dde367f97873686f8436c21
+
+**Decision**: All three blocking unknowns from the ideation resolve favorably (no DRIFT vs `main` 166a688). **A6 RESOLVED** — the gate fires before `original(...)` in both wrappers (`tool_patches.py:138-139` / `153-160`), so wrapping the run in `try/finally` for execution-evidence adds no bypass surface; the bypass-risk escalation does **not** fire. **A4 CONFIRMED** — `submit_evidence(list[EvidenceRecord])` is already the best-effort never-raises sink contract (`decision_client.py:36`; working on `SidecarClient` `client.py:149-158`; no-op on `AgtDecisionClient` `agt_engine.py:119` = the only gap); OTel sink feasible via existing `otel.py:36-47`. **Perf** — zero overhead when no sink (opt-in default). Structural note: request+decision are available but discarded at `tool_patches.py:125-126` (F5) — emission must surface them. Recommend Option A (opt-in `EvidenceSink`), decision-evidence (deny) + execution-evidence (executed/errored) both in scope. Next phase: **/qor-plan**.
+
+---
+*Chain integrity: VALID*
+*Ideation + research artifacts are local (uncommitted) per the Review Boundary; they ride with the eventual B5-emission implement PR. Readiness: plan-ready.*
+
+---
+
+### Entry #49: GATE TRIBUNAL — Phase 21 (dispatch-path evidence emission plan)
+
+**Timestamp**: 2026-06-09T23:00:00Z
+**Phase**: GATE (plan + audit)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3 — high-risk target (enforcement hot path)
+**Verdict**: PASS
+
+**Content Hash**:
+SHA256(plan-qor-phase21-evidence-emission.md) = 0ebb5a3ac5c964983ce4817677f712bf234a20d99560aa14a63dfd775b775105
+
+**Previous Hash**: 2171c829f4b7b95e3a3fc21cf44a1647df6d423e78a621da7dfa03b810dc07c1
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = fcc3bc7ef0bcbc9d251815715bb920aac3f928cb8ec6375a3340ec43389d4be5
+
+**Decision**: Plan to ship Option A (opt-in `EvidenceSink`) from the research brief cleared all binding passes. High-risk-target invariants made explicit + testable: no sink ⇒ zero behavior change; emission never raises into the caller (`safe_emit`); emission never alters the decision / weakens fail-closed (throwing-sink test); no new bypass surface (wraps the already-occurring `original(...)`, research F1); async non-blocking (`asyncio.to_thread`). Scope: decision-evidence on deny (BaseTool + ToolNode) + execution-evidence on the BaseTool run/arun funnel; ToolNode per-tool execution evidence + require_approval/transform + timed_out deferred with rationale. No runtime dep. Cleared for /qor-implement.
+
+---
+
+### Entry #50: SEAL — Phase 21 (opt-in dispatch-path evidence emission)
+
+**Timestamp**: 2026-06-09T23:25:00Z
+**Phase**: SEAL (substantiate, local — commit+push to a new PR)
+**Author**: Judge (auto-dev-1)
+**Risk Grade**: L3
+**Verdict**: SEALED
+
+**Content Hash**:
+SHA256(evidence_sink + tool_patches + langgraph_patches + registry + __init__) = 9790e6e49ea03e7c4f012c1e7a4dd084d4e90b753cbbce589a72c9db565c677c
+
+**Previous Hash**: 0ebb5a3ac5c964983ce4817677f712bf234a20d99560aa14a63dfd775b775105
+
+**Chain Hash**:
+SHA256(content_hash + previous_hash) = bec8ea2d60e8f381f5d41c5c5ffc9767d4da48d042d5679b9d5e31240a746e5e
+
+**Decision**: Reality == Promise. **B5 emission SHIPPED (opt-in).** New `EvidenceSink` Protocol + `OTelEvidenceSink` + `safe_emit`; threaded `evidence_sink` through `init`/`init_agt`→`apply_patches`→adapters→wrappers (default None = no emission, hot path unchanged). `_decide_or_raise` returns `(request, decision)`; emits `decision_evidence` on terminal deny (BaseTool + ToolNode), `execution_evidence`(executed/errored + duration) after each permitted `BaseTool.run`/`.arun` (async via `to_thread`). All high-risk invariants **conformance-proven**: no-sink-unchanged; throwing-sink doesn't break allow AND keeps deny fail-closed; deny→decision event (body never runs); allow→execution event; errored→errored; async off-loop; ToolNode deny→decision event; OTel/safe_emit unit-safe. 12 new tests; full suite **165 passed / 2 skipped** on latest AND the 0.3 floor; ruff + mypy(0/24) clean. Closes the full B5 SDLC: ideate (#?) → research #48 → gate #49 → seal #50. Deferred follow-ups in BACKLOG. No runtime dep added.
+
+---
+*Chain integrity: VALID*
+*B5 complete (ideation→research→plan→implement, all in one governed thread, committed together). Standing residuals + post-Beta follow-ups (ToolNode execution evidence, approval/transform events, timed_out) unchanged.*
