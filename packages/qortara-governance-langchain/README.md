@@ -174,6 +174,17 @@ from qortara_governance import QortaraUngovernedDispatchWarning
 warnings.filterwarnings("error", category=QortaraUngovernedDispatchWarning)
 ```
 
+### Diagnostics (`doctor`)
+
+Confirm governance is actually active and in which mode:
+
+```bash
+python -m qortara_governance.doctor          # human-readable report (exit 0 if active, 1 if not)
+python -m qortara_governance.doctor --json   # machine-readable
+```
+
+It reports patch state, the active decision client, `enforce` vs `observe`, the configured evidence sink, whether an `AgentContext` is set, and warns on the silent traps (no context → ungoverned; observe → not enforcing; no sink → no audit trail; credential over plaintext http). Read-only — it never changes configuration, and never prints the `tenant_key` value. For programmatic checks, `qortara_governance.collect_status()` returns a `GovernanceStatus`.
+
 ## Observability
 
 `QortaraCallbackHandler` is an additive LangChain callback for chain-boundary and retrieval events. It never blocks execution; safe to register alongside LangSmith or any other callback:
