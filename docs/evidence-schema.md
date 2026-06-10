@@ -50,13 +50,31 @@ Both builders construct an `EvidenceRecord` with:
 | `result_payload_ref` | `None` for a decision event; an optional reference for an execution event (raw payloads are never inlined) |
 | `ts` | wall-clock at build time |
 
-## Status (B5)
+## Emission from the dispatch path (Phase 21 — opt-in)
 
-**Defined** here, and used today by `QortaraCallbackHandler` (which emits an `observe`
-decision event for chain/retriever boundaries).
+Evidence is emitted from the enforcement dispatch path **only when an `EvidenceSink` is
+configured** — `init(..., evidence_sink=...)` / `init_agt(..., evidence_sink=...)`. With no
+sink (the default), nothing is emitted and the hot path is unchanged.
 
-**Deferred (design decision):** emitting evidence from the *enforcement dispatch path*
-itself (a decision event on every gate, an execution event after each permitted run). That
-is a behavior change with a perf budget, and the default in-process AGT client's
-`submit_evidence` is a no-op (no sink) — so it requires a deliberate opt-in design (when to
-emit, where it goes) rather than being switched on by default. Tracked in BACKLOG [B5].
+When a sink is set:
+- a **decision event** is emitted on a terminal `deny` (before the call is blocked);
+- an **execution event** (`executed` / `errored` + measured `duration_ms`) is emitted after
+  each permitted `BaseTool.run`/`.arun`.
+
+Guarantees (all conformance-tested): emission is best-effort and **never raises into the
+caller** (`safe_emit`); it **never weakens fail-closed** (a throwing sink does not stop a
+deny from raising); async emission runs **off the event loop** (`asyncio.to_thread`).
+`QortaraCallbackHandler` continues to emit `observe` decision events for chain/retriever
+boundaries.
+
+### Sinks
+The sink contract is the existing `submit_evidence(list[EvidenceRecord]) -> None` shape, so a
+`SidecarClient` can be its own sink. Built-in: `OTelEvidenceSink` (span event +
+`qortara.evidence_id` attribute; no-op without OpenTelemetry).
+
+### Deferred (B5 follow-up)
+- **ToolNode per-tool execution evidence** — `ToolNode` runs its tools internally, so only a
+  *decision* event (on deny) is emitted there; per-tool post-run outcome needs a deeper hook.
+- `require_approval` / transform-kind blocked dispatches emit no decision event yet (the
+  terminal-result taxonomy has no clean mapping for them).
+- `timed_out` (no timeout mechanism on the sync path).

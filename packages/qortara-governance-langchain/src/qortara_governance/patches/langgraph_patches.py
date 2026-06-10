@@ -7,13 +7,16 @@ from types import MappingProxyType
 from typing import Any, Callable
 
 from qortara_governance.context import get_context
-from qortara_governance.decision_client import DecisionClient
 from qortara_governance.contract.state import CONTRACT_VERSION, AdapterState
+from qortara_governance.decision_client import DecisionClient
+from qortara_governance.evidence import decision_evidence
+from qortara_governance.evidence_sink import EvidenceSink, safe_emit
 from qortara_governance.patches.action_builder import build_toolnode_action
 from qortara_governance.patches.tool_patches import (
     enforce_decision,
     warn_missing_context,
 )
+from qortara_protocol import DecisionKind
 
 _OriginalMethod = Callable[..., Any]
 
@@ -64,7 +67,10 @@ def _extract_tool_calls(state: Any) -> list[tuple[str, dict]]:
 
 
 def _decide_each(
-    tool_calls: list[tuple[str, dict]], client: DecisionClient, observe: bool = False
+    tool_calls: list[tuple[str, dict]],
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
 ) -> None:
     ctx = get_context()
     if ctx is None:
@@ -78,16 +84,27 @@ def _decide_each(
         # argument-level checks (SQL/code/path); SidecarClient ignores it.
         # enforce_decision fails closed on any non-permit verdict (shared with
         # the BaseTool path so the two can't diverge); observe -> log not raise.
-        enforce_decision(
-            client.decide(build_toolnode_action(name, ctx), args), observe=observe
-        )
+        request = build_toolnode_action(name, ctx)
+        decision = client.decide(request, args)
+        if (
+            evidence_sink is not None
+            and not observe
+            and decision.decision_kind == DecisionKind.DENY
+        ):
+            # Decision evidence on a terminal deny. (ToolNode runs its tools
+            # internally, so per-tool execution evidence is deferred — B5 follow-up.)
+            safe_emit(evidence_sink, decision_evidence(request, decision))
+        enforce_decision(decision, observe=observe)
 
 
 def _make_wrapper(
-    original: _OriginalMethod, client: DecisionClient, observe: bool = False
+    original: _OriginalMethod,
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
 ) -> _OriginalMethod:
     def wrapper(self: object, input: Any, config: Any = None, **kwargs: Any) -> Any:
-        _decide_each(_extract_tool_calls(input), client, observe)
+        _decide_each(_extract_tool_calls(input), client, observe, evidence_sink)
         return original(self, input, config, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__
@@ -98,7 +115,10 @@ def _make_wrapper(
 
 
 def _make_async_wrapper(
-    original: _OriginalMethod, client: DecisionClient, observe: bool = False
+    original: _OriginalMethod,
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
 ) -> _OriginalMethod:
     async def wrapper(
         self: object, input: Any, config: Any = None, **kwargs: Any
@@ -107,9 +127,9 @@ def _make_async_wrapper(
         if getattr(client, "blocking_io", True):
             # Sidecar (blocking httpx) — run decisions off the event loop;
             # asyncio.to_thread propagates contextvars for get_context().
-            await asyncio.to_thread(_decide_each, calls, client, observe)
+            await asyncio.to_thread(_decide_each, calls, client, observe, evidence_sink)
         else:
-            _decide_each(calls, client, observe)
+            _decide_each(calls, client, observe, evidence_sink)
         return await original(self, input, config, **kwargs)
 
     wrapper.__qualname__ = original.__qualname__
@@ -120,7 +140,9 @@ def _make_async_wrapper(
 
 
 def apply(
-    client: DecisionClient, observe: bool = False
+    client: DecisionClient,
+    observe: bool = False,
+    evidence_sink: EvidenceSink | None = None,
 ) -> dict[str, _OriginalMethod] | None:
     """Install ToolNode.invoke + .ainvoke patches if langgraph present; else skip."""
     if not _langgraph_available():
@@ -137,8 +159,10 @@ def apply(
         "invoke": ToolNode.invoke,
         "ainvoke": ToolNode.ainvoke,
     }
-    ToolNode.invoke = _make_wrapper(ToolNode.invoke, client, observe)  # type: ignore[method-assign]
-    ToolNode.ainvoke = _make_async_wrapper(ToolNode.ainvoke, client, observe)  # type: ignore[method-assign]
+    invoke_w = _make_wrapper(ToolNode.invoke, client, observe, evidence_sink)
+    ainvoke_w = _make_async_wrapper(ToolNode.ainvoke, client, observe, evidence_sink)
+    ToolNode.invoke = invoke_w  # type: ignore[method-assign]
+    ToolNode.ainvoke = ainvoke_w  # type: ignore[method-assign]
     return originals
 
 
@@ -162,8 +186,11 @@ class LangGraphToolNodeAdapter:
     framework_module: str = "langgraph.prebuilt"
     contract_version: str = CONTRACT_VERSION
 
-    def __init__(self, observe: bool = False) -> None:
+    def __init__(
+        self, observe: bool = False, evidence_sink: EvidenceSink | None = None
+    ) -> None:
         self._observe = observe
+        self._evidence_sink = evidence_sink
 
     def apply(self, client: DecisionClient) -> AdapterState:
         """Install the ToolNode patch and return an AdapterState.
@@ -172,7 +199,7 @@ class LangGraphToolNodeAdapter:
         expected to probe `framework_module` importability and skip the
         adapter before calling apply.
         """
-        originals = apply(client, self._observe)
+        originals = apply(client, self._observe, self._evidence_sink)
         if originals is None:
             raise ImportError(
                 "langgraph is not installed; LangGraphToolNodeAdapter.apply() "
