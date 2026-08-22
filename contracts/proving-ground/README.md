@@ -44,8 +44,25 @@ An optional `correlation_id` may link a lower-level trace or transport event, bu
 
 - `qortara-governance-exchange.v0.1.schema.json` - prototype JSON Schema for a request/result exchange.
 - `fixtures/allow-agt.json` - verified AGT allow translated to a Qortara permit while retaining AGT evidence.
+- `fixtures/deny-agt.json` - verified native AGT policy denial, distinct from Qortara fail-closed behavior caused by provider failure.
 - `fixtures/agt-unavailable.json` - fail-closed Qortara denial caused by provider unavailability, explicitly not relabeled as an AGT policy denial.
 - `fixtures/agt-runtime-unsupported.json` - fail-closed result for an unsupported runtime/provider combination.
+- `validate_contract.py` - deterministic JSON Schema and fixture validator used by the dedicated contract CI gate.
+
+## Validation
+
+The proving-ground contract has its own CI signal so contract validity remains independently visible even when another repository-wide gate is blocked by an unrelated dependency finding.
+
+Run locally with:
+
+```bash
+uv run --no-project --python 3.12 --with "jsonschema==4.26.0" \
+  python contracts/proving-ground/validate_contract.py
+```
+
+The validator checks the Draft 2020-12 schema itself, validates every checked-in fixture, and enables JSON Schema format checks such as `date-time`.
+
+A green contract-validation result does **not** override a red repository security or dependency result. It only proves that the host-neutral exchange schema and fixtures are internally conformant.
 
 ## Existing protocol relationship
 
@@ -113,10 +130,27 @@ For a protected action:
 
 ```text
 verified permitting provider result -> Qortara may permit
-anything else                     -> no execution
+anything else                       -> no execution
 ```
 
 The execution effect and the provider verdict are separate fields precisely so fail-closed behavior cannot rewrite the historical cause.
+
+A verified provider denial is therefore represented as:
+
+```text
+provider.status = verified
+provider.native_effect = deny
+result.effect = deny
+```
+
+while an unavailable provider is represented as:
+
+```text
+provider.status = unavailable
+result.effect = deny
+```
+
+Both prevent execution. Only the first is a verified native policy denial.
 
 ## Read-only upstream rule
 
