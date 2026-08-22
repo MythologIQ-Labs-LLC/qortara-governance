@@ -33,12 +33,19 @@ jobs:
       - name: Dependency audit (pip-audit)
         run: uv run --with pip-audit pip-audit
 
+      # Keep independent security evidence visible even when the dependency
+      # audit fails. `always()` does not make Bandit non-blocking: a Bandit
+      # failure still contributes a failing conclusion for this job.
       - name: SAST (bandit)
+        if: always()
         run: uv tool run bandit -r src -ll
 
       # SBOM is artifact generation, not a security finding — kept non-blocking
-      # on purpose so a CycloneDX tooling hiccup never fails the build.
+      # on purpose so a CycloneDX tooling hiccup never fails the build. Run it
+      # even after a blocking scanner failure so the failed run is still
+      # diagnosable and retains its dependency inventory.
       - name: SBOM (CycloneDX)
+        if: always()
         run: |
           uv tool run --from cyclonedx-bom cyclonedx-py environment -o sbom.cdx.json || \
           uv tool run --from cyclonedx-bom cyclonedx-py -o sbom.cdx.json || true
