@@ -8,6 +8,7 @@
   "required": [
     "contract_version",
     "run_id",
+    "operation_id",
     "action",
     "result"
   ],
@@ -16,6 +17,10 @@
       "const": "0.1"
     },
     "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operation_id": {
       "type": "string",
       "minLength": 1
     },
