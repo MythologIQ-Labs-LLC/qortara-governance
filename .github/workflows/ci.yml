@@ -37,8 +37,11 @@ jobs:
       - name: Lint (ruff)
         run: uv run ruff check .
 
+      # Format executable Python code only. Newer Ruff releases can also format
+      # Python snippets embedded in Markdown, which is not part of this gate's
+      # historical source/test formatting contract.
       - name: Format check (ruff)
-        run: uv run ruff format --check .
+        run: uv run ruff format --check src tests
 
       - name: Type check (mypy)
         run: uv run mypy src
