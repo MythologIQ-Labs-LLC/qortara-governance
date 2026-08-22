@@ -26,6 +26,20 @@ For Microsoft Agent Governance Toolkit this means a Qortara result can fail clos
 
 Those states are not interchangeable.
 
+## Correlation identity
+
+The cross-system Wayfinder contract uses:
+
+```text
+scenario_id   # composite/lifecycle layer
+run_id        # one complete journey
+operation_id  # one consequential action/obligation pair
+```
+
+This Qortara Governance exchange is narrower than the composite lifecycle envelope, so it carries `run_id` and **required `operation_id`**. `scenario_id`, Agent Memory, AgentTrust, outcome-observation, and cleanup composition remain Qortara SDLC concerns.
+
+An optional `correlation_id` may link a lower-level trace or transport event, but it must not become a competing run identity.
+
 ## Files
 
 - `qortara-governance-exchange.v0.1.schema.json` - prototype JSON Schema for a request/result exchange.
@@ -47,7 +61,7 @@ ActionRequest
 The proving-ground exchange wraps that semantic operation:
 
 ```text
-run/context identity
+run + operation identity
         +
 ActionRequest-compatible action
         |
@@ -103,6 +117,10 @@ anything else                     -> no execution
 ```
 
 The execution effect and the provider verdict are separate fields precisely so fail-closed behavior cannot rewrite the historical cause.
+
+## Read-only upstream rule
+
+For parent project #247, Microsoft AGT and AgentTrust are read-only upstream dependencies. This fixture may inspect, pin, and test their public artifacts and retain results locally, but it does not authorize upstream writes or evidence transmission.
 
 ## Brennan / alternate-host requirement
 
