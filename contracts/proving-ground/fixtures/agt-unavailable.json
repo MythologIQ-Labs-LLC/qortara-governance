@@ -1,6 +1,7 @@
 {
   "contract_version": "0.1",
   "run_id": "run-qor-worker-unavailable-001",
+  "operation_id": "op-admin-delete-001",
   "correlation_id": "corr-002",
   "action": {
     "principal_id": "principal:test-operator",
