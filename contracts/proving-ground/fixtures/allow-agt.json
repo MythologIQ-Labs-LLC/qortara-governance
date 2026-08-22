@@ -1,6 +1,7 @@
 {
   "contract_version": "0.1",
   "run_id": "run-qor-worker-allow-001",
+  "operation_id": "op-status-read-001",
   "correlation_id": "corr-001",
   "action": {
     "principal_id": "principal:test-operator",
