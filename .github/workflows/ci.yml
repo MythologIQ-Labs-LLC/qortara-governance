@@ -32,11 +32,16 @@ jobs:
       - name: Install package
         run: uv sync --all-extras --python ${{ matrix.python-version }}
 
+      # Use the project environment so the CI tool version and configured rule
+      # set are the same ones declared by the package under test.
       - name: Lint (ruff)
-        run: uv tool run ruff check .
+        run: uv run ruff check .
 
+      # Format executable Python code only. Newer Ruff releases can also format
+      # Python snippets embedded in Markdown, which is not part of this gate's
+      # historical source/test formatting contract.
       - name: Format check (ruff)
-        run: uv tool run ruff format --check .
+        run: uv run ruff format --check src tests
 
       - name: Type check (mypy)
         run: uv run mypy src
