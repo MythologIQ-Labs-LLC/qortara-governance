@@ -21,12 +21,10 @@ dependencies = [
     "httpx>=0.28",
     "opentelemetry-api>=1.30",
     "qortara-protocol==0.1.2",
-    # AGT foundation (ADR-0001): library components only — the `[full]` extra
-    # pulls `-cli` (operator tool) which requires Python>=3.11 and would drop
-    # our 3.10 support. core+protocols+integrations = full library capability.
-    "agent-governance-toolkit-core==4.0.0",
-    "agent-governance-toolkit-protocols==4.0.0",
-    "agent-governance-toolkit-integrations==4.0.0",
+    # Qortara's in-process AGT adapter imports PolicyEngine from the core
+    # distribution. Test the current consolidated AGT core directly; the former
+    # 4.x protocols/integrations pins are not imported by Qortara source.
+    "agent-governance-toolkit-core==5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -68,8 +66,9 @@ plugins = ["pydantic.mypy"]
 module = "qortara_protocol.*"
 ignore_missing_imports = true
 
-# Microsoft AGT (agent-governance-toolkit-core 4.0.0) ships without a py.typed
-# marker; allow the missing stubs for the in-process decision-engine import.
+# Keep the existing import tolerance during the first AGT 5 compatibility
+# probe; removing it is a separate typing-hardening decision after runtime
+# and conformance behavior is proven on the published wheel.
 [[tool.mypy.overrides]]
 module = "agent_control_plane.*"
 ignore_missing_imports = true
