@@ -1,0 +1,48 @@
+{
+  "contract_version": "0.1",
+  "run_id": "run-qor-worker-unavailable-001",
+  "operation_id": "op-admin-delete-001",
+  "correlation_id": "corr-002",
+  "action": {
+    "principal_id": "principal:test-operator",
+    "principal_type": "human",
+    "agent_id": "agent:qor-cloudflare-prototype",
+    "capability": "admin.delete",
+    "target_ref": "resource:test-admin-object",
+    "input_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "runtime_context": {
+      "host": "cloudflare-worker",
+      "runtime_profile": "modern-node-compatible-workerd"
+    },
+    "policy_context_refs": [
+      "policy:qor-cloudflare-agt-fixture"
+    ],
+    "evidence_refs": [],
+    "requested_at": "2026-08-22T15:16:00Z"
+  },
+  "result": {
+    "effect": "deny",
+    "reason_codes": [
+      "provider_unavailable_fail_closed"
+    ],
+    "qortara": {
+      "adapter": "qortara-governance-proving-ground",
+      "adapter_version": "0.1",
+      "decision_id": "qg-dec-002",
+      "decided_at": "2026-08-22T15:16:00Z",
+      "latency_ms": 10002.0,
+      "transport": "http"
+    },
+    "provider": {
+      "name": "microsoft-agent-governance-toolkit",
+      "status": "unavailable",
+      "version": "5.0.0",
+      "sdk": "@microsoft/agent-governance-sdk",
+      "adapter": "qortara-agt-remote",
+      "intervention_point": "pre-capability",
+      "runtime_profile": "remote-policy-service",
+      "observed_at": "2026-08-22T15:16:10Z",
+      "error_code": "provider_timeout"
+    }
+  }
+}

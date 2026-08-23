@@ -1,0 +1,19 @@
+{
+  "name": "@mythologiq/qortara-governance-provider",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "scripts": {
+    "check": "node --check src/index.mjs && node --check test/provider.test.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@microsoft/agent-governance-sdk": "5.0.0"
+  }
+}

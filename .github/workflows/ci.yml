@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+env:
+  # The repository was sealed Ruff-clean on 2026-06-10 when 0.15.16 was the
+  # current release. Pin the CI tool so later Ruff rule/default changes do not
+  # retroactively redefine the accepted Python baseline. A Ruff upgrade should
+  # be an explicit, reviewed maintenance change.
+  RUFF_VERSION: "0.15.16"
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -33,10 +40,10 @@ jobs:
         run: uv sync --all-extras --python ${{ matrix.python-version }}
 
       - name: Lint (ruff)
-        run: uv tool run ruff check .
+        run: uv tool run "ruff==${RUFF_VERSION}" check .
 
       - name: Format check (ruff)
-        run: uv tool run ruff format --check .
+        run: uv tool run "ruff==${RUFF_VERSION}" format --check .
 
       - name: Type check (mypy)
         run: uv run mypy src

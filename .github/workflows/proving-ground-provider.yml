@@ -1,0 +1,52 @@
+name: Proving Ground Provider
+
+on:
+  pull_request:
+    paths:
+      - 'packages/qortara-governance-provider/**'
+      - 'contracts/proving-ground/**'
+      - '.github/workflows/proving-ground-provider.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/qortara-governance-provider/**'
+      - 'contracts/proving-ground/**'
+      - '.github/workflows/proving-ground-provider.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/qortara-governance-provider
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: packages/qortara-governance-provider/package.json
+
+      - name: Install exact direct dependency set
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Provider tests
+        run: npm test
+
+      - name: Assert pinned AGT version
+        run: |
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (packageJson.dependencies['@microsoft/agent-governance-sdk'] !== '5.0.0') {
+            throw new Error('AGT direct dependency must remain pinned to 5.0.0 for this proving trajectory');
+          }
+          NODE

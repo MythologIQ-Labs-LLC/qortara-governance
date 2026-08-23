@@ -1,0 +1,56 @@
+{
+  "contract_version": "0.1",
+  "run_id": "run-qor-worker-deny-001",
+  "operation_id": "op-admin-delete-policy-deny-001",
+  "correlation_id": "corr-004",
+  "action": {
+    "principal_id": "principal:test-operator",
+    "principal_type": "human",
+    "agent_id": "agent:qor-cloudflare-prototype",
+    "capability": "admin.delete",
+    "target_ref": "resource:test-admin-object",
+    "input_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "runtime_context": {
+      "host": "cloudflare-worker",
+      "runtime_profile": "modern-node-compatible-workerd"
+    },
+    "policy_context_refs": [
+      "policy:qor-cloudflare-agt-fixture"
+    ],
+    "evidence_refs": [],
+    "requested_at": "2026-08-22T15:18:00Z"
+  },
+  "result": {
+    "effect": "deny",
+    "reason_codes": [
+      "provider_policy_deny"
+    ],
+    "qortara": {
+      "adapter": "qortara-governance-proving-ground",
+      "adapter_version": "0.1",
+      "decision_id": "qg-dec-004",
+      "decided_at": "2026-08-22T15:18:00Z",
+      "latency_ms": 1.3,
+      "transport": "in_process"
+    },
+    "provider": {
+      "name": "microsoft-agent-governance-toolkit",
+      "status": "verified",
+      "version": "5.0.0",
+      "sdk": "@microsoft/agent-governance-sdk",
+      "adapter": "qortara-agt",
+      "intervention_point": "pre-capability",
+      "runtime_profile": "modern-node-compatible-workerd",
+      "native_effect": "deny",
+      "native_reason_codes": [
+        "agt_policy_deny"
+      ],
+      "policy_ref": "policy:qor-cloudflare-agt-fixture",
+      "policy_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "receipt_ref": "evidence:agt-decision-004",
+      "evidence_digest": "sha256:abababababababababababababababababababababababababababababababab",
+      "latency_ms": 0.9,
+      "observed_at": "2026-08-22T15:18:00Z"
+    }
+  }
+}
