@@ -1,0 +1,95 @@
+name: Cloudflare Governance Provider
+
+on:
+  pull_request:
+    paths:
+      - "packages/qortara-governance-provider/**"
+      - "examples/cloudflare-governance-provider/**"
+      - ".github/workflows/cloudflare-governance-provider.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workerd-provider:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/cloudflare-governance-provider
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install exact proving dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Run direct contract tests
+        run: npm run check
+
+      - name: Prove real adapter behavior under workerd
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm exec wrangler dev -- --port 8794 > /tmp/qortara-governance-worker.log 2>&1 &
+          worker_pid=$!
+          cleanup() { kill "$worker_pid" 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          ready=0
+          for _ in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:8794/health >/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$worker_pid" 2>/dev/null; then
+              echo "Governance proving Worker exited before becoming ready"
+              cat /tmp/qortara-governance-worker.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Governance proving Worker did not become ready"
+            cat /tmp/qortara-governance-worker.log
+            exit 1
+          fi
+
+          node --input-type=module <<'NODE'
+          const endpoint = 'http://127.0.0.1:8794/v1/governance/evaluate';
+          const request = (capability, operationId) => ({
+            run_id: 'run-workerd-ci-001',
+            operation_id: operationId,
+            action: {
+              principal_id: 'principal:ci',
+              principal_type: 'automation',
+              agent_id: 'agent:qor-cloudflare-proving',
+              capability,
+              target_ref: 'r2://qor-agent-proving-ground-markers/ci/marker.json'
+            }
+          });
+
+          async function evaluate(capability, operationId) {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(request(capability, operationId))
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            return await response.json();
+          }
+
+          const allow = await evaluate('release.marker.publish', 'op-publish-ci');
+          if (allow.result.effect !== 'allow' || allow.result.provider.status !== 'verified' || allow.result.provider.native_effect !== 'allow') {
+            throw new Error(`unexpected publish result: ${JSON.stringify(allow)}`);
+          }
+
+          const deny = await evaluate('admin.delete', 'op-deny-ci');
+          if (deny.result.effect !== 'deny' || deny.result.provider.status !== 'verified' || deny.result.provider.native_effect !== 'deny') {
+            throw new Error(`unexpected deny result: ${JSON.stringify(deny)}`);
+          }
+          NODE
