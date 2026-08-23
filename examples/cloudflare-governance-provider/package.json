@@ -1,0 +1,17 @@
+{
+  "name": "qortara-governance-cloudflare-proving-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/index.mjs && node --check test/worker.test.mjs && node --test test/*.test.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@mythologiq/qortara-governance-provider": "file:../../packages/qortara-governance-provider"
+  },
+  "devDependencies": {
+    "wrangler": "4.125.0"
+  }
+}
