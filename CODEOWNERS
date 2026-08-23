@@ -1,1 +1,9 @@
-* @MythologIQ-Labs-LLC/maintainers
+# Single-maintainer repository.
+#
+# The previous entry pointed at @MythologIQ-Labs-LLC/maintainers, a team that does
+# not exist in this organization. GitHub therefore rejected every review request to
+# it, which made the CODEOWNERS requirement unsatisfiable. See issue #36.
+#
+# Note: require_code_owner_reviews is currently disabled in branch protection, so
+# this file is advisory rather than a merge gate.
+* @Knapp-Kevin
