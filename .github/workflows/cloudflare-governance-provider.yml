@@ -5,6 +5,7 @@ on:
     paths:
       - "packages/qortara-governance-provider/**"
       - "examples/cloudflare-governance-provider/**"
+      - "pyproject.toml"
       - ".github/workflows/cloudflare-governance-provider.yml"
   workflow_dispatch:
 
@@ -24,7 +25,10 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Install exact proving dependencies
+      - name: Install owner provider dependencies
+        run: npm install --prefix ../../packages/qortara-governance-provider --ignore-scripts --no-audit --no-fund
+
+      - name: Install adapter dependencies
         run: npm install --ignore-scripts --no-audit --no-fund
 
       - name: Run direct contract tests
