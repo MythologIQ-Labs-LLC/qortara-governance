@@ -1,6 +1,6 @@
 # Governance Index
 
-**Last Reviewed**: 2026-06-10 (Phase 23 / governance-doc validation: SYSTEM_STATE, FEATURE_INDEX, CHANGELOG re-synced to ledger #54)
+**Last Reviewed**: 2026-09-01 (Qortara ecosystem architecture canonicalization)
 
 A single authoritative map of every governance artifact in this project, organized
 into six freshness tiers with explicit drift contracts. A stale entry here is
@@ -13,6 +13,7 @@ MUST be current at every cycle close. Drift signal: wrong version / wrong state 
 
 | Artifact | Path | Freshness marker |
 |----------|------|------------------|
+| Qortara Ecosystem Canonical Architecture | `docs/QORTARA_ECOSYSTEM_CANONICAL_ARCHITECTURE.md` | product-family boundaries and shared contracts current |
 | Meta Ledger | `docs/META_LEDGER.md` | latest sealed entry |
 | System State | `docs/SYSTEM_STATE.md` | latest phase snapshot |
 | Concept | `docs/CONCEPT.md` | stable |
